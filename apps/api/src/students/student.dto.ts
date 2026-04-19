@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsDateString, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsBoolean, IsIn } from 'class-validator';
 
 export class UpdateStudentDto {
   @IsOptional()
@@ -32,6 +32,10 @@ export class UpdateStudentDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsString()
+  classroomId?: string;
 }
 
 export class AddEmergencyContactDto {
@@ -82,6 +86,14 @@ export class ListStudentsDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @IsOptional()
+  @IsString()
+  sortBy?: string;
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortOrder?: 'asc' | 'desc';
 
   @IsOptional()
   page?: number;

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsInt, IsBoolean, Min, Max } from 'class-validator';
+import { IsString, IsOptional, IsInt, IsBoolean, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateClassroomDto {
@@ -53,6 +53,10 @@ export class UpdateClassroomDto {
   leadStaffId?: string;
 
   @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 }
@@ -60,6 +64,11 @@ export class UpdateClassroomDto {
 export class AssignStudentDto {
   @IsString()
   studentId: string;
+}
+
+export class AssignStaffDto {
+  @IsString()
+  staffId: string;
 }
 
 export class ListClassroomsDto {

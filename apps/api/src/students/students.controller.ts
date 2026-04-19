@@ -18,6 +18,18 @@ export class StudentsController {
     return this.studentsService.findAll(query);
   }
 
+  @Get('stats')
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  getStats() {
+    return this.studentsService.getStudentStats();
+  }
+
+  @Get('by-parent/:parentId')
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  getByParent(@Param('parentId') parentId: string) {
+    return this.studentsService.getStudentsByParent(parentId);
+  }
+
   @Get(':id')
   @Roles('ADMIN', 'SUPER_ADMIN', 'STAFF', 'PARENT')
   findOne(@Param('id') id: string) {

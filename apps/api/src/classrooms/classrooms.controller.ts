@@ -5,7 +5,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { ClassroomsService } from './classrooms.service';
-import { CreateClassroomDto, UpdateClassroomDto, AssignStudentDto, ListClassroomsDto } from './classroom.dto';
+import { CreateClassroomDto, UpdateClassroomDto, AssignStudentDto, AssignStaffDto, ListClassroomsDto } from './classroom.dto';
 
 @Controller('classrooms')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -22,6 +22,12 @@ export class ClassroomsController {
   @Roles('ADMIN', 'SUPER_ADMIN', 'STAFF', 'PARENT')
   findAll(@Query() query: ListClassroomsDto) {
     return this.classroomsService.findAll(query);
+  }
+
+  @Get('stats')
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  getStats() {
+    return this.classroomsService.getClassroomStats();
   }
 
   @Get(':id')
@@ -58,5 +64,17 @@ export class ClassroomsController {
   @Roles('ADMIN', 'SUPER_ADMIN', 'STAFF')
   listStudents(@Param('id') id: string) {
     return this.classroomsService.listStudents(id);
+  }
+
+  @Post(':id/staff')
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  assignStaff(@Param('id') id: string, @Body() dto: AssignStaffDto) {
+    return this.classroomsService.assignStaff(id, dto);
+  }
+
+  @Delete(':id/staff')
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  removeStaff(@Param('id') id: string) {
+    return this.classroomsService.removeStaff(id);
   }
 }

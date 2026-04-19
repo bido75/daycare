@@ -3,13 +3,14 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
-import { Search, Filter } from "lucide-react";
+import { Search, ChevronUp, ChevronDown, UserPlus } from "lucide-react";
 
 interface Student {
   id: string;
   firstName: string;
   lastName: string;
   dateOfBirth: string;
+  enrollmentDate: string | null;
   isActive: boolean;
   classrooms: { id: string; name: string }[];
 }
@@ -17,24 +18,29 @@ interface Student {
 interface Meta {
   total: number;
   page: number;
+  limit: number;
   totalPages: number;
 }
+
+type SortKey = "name" | "dateOfBirth" | "enrollmentDate";
 
 export default function AdminStudentsPage() {
   const router = useRouter();
   const [students, setStudents] = useState<Student[]>([]);
-  const [meta, setMeta] = useState<Meta>({ total: 0, page: 1, totalPages: 1 });
+  const [meta, setMeta] = useState<Meta>({ total: 0, page: 1, limit: 20, totalPages: 1 });
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [classroomId, setClassroomId] = useState("");
   const [classrooms, setClassrooms] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState<SortKey>("name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   const fetchStudents = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, any> = { page, limit: 20 };
+      const params: Record<string, any> = { page, limit: 20, sortBy, sortOrder };
       if (search) params.search = search;
       if (status) params.status = status;
       if (classroomId) params.classroomId = classroomId;
@@ -46,11 +52,9 @@ export default function AdminStudentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, status, classroomId]);
+  }, [page, search, status, classroomId, sortBy, sortOrder]);
 
-  useEffect(() => {
-    fetchStudents();
-  }, [fetchStudents]);
+  useEffect(() => { fetchStudents(); }, [fetchStudents]);
 
   useEffect(() => {
     api.get("/classrooms").then((res) => setClassrooms(res.data.data || [])).catch(() => {});
@@ -61,19 +65,43 @@ export default function AdminStudentsPage() {
     const now = new Date();
     const years = now.getFullYear() - birth.getFullYear();
     const months = now.getMonth() - birth.getMonth();
-    if (years === 0) return `${months}mo`;
+    if (years === 0) return `${months < 0 ? months + 12 : months}mo`;
     return `${years}y ${months < 0 ? months + 12 : months}mo`;
   }
+
+  function handleSort(key: SortKey) {
+    if (sortBy === key) {
+      setSortOrder((o) => (o === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(key);
+      setSortOrder("asc");
+    }
+    setPage(1);
+  }
+
+  function SortIcon({ col }: { col: SortKey }) {
+    if (sortBy !== col) return <ChevronUp className="h-3 w-3 opacity-30 inline ml-1" />;
+    return sortOrder === "asc"
+      ? <ChevronUp className="h-3 w-3 inline ml-1" />
+      : <ChevronDown className="h-3 w-3 inline ml-1" />;
+  }
+
+  const start = (page - 1) * meta.limit + 1;
+  const end = Math.min(page * meta.limit, meta.total);
 
   return (
     <div>
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Students</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            {meta.total} total students
-          </p>
+          <p className="text-muted-foreground text-sm mt-1">{meta.total} total students</p>
         </div>
+        <button
+          onClick={() => router.push("/admin/registrations")}
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90"
+        >
+          <UserPlus className="h-4 w-4" /> Add Student
+        </button>
       </div>
 
       {/* Filters */}
@@ -113,25 +141,36 @@ export default function AdminStudentsPage() {
         <table className="w-full text-sm">
           <thead className="bg-muted/50 border-b">
             <tr>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Name</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Age</th>
+              <th
+                className="text-left px-4 py-3 font-medium text-muted-foreground cursor-pointer hover:text-foreground select-none"
+                onClick={() => handleSort("name")}
+              >
+                Name <SortIcon col="name" />
+              </th>
+              <th
+                className="text-left px-4 py-3 font-medium text-muted-foreground cursor-pointer hover:text-foreground select-none"
+                onClick={() => handleSort("dateOfBirth")}
+              >
+                Age <SortIcon col="dateOfBirth" />
+              </th>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">Classroom</th>
+              <th
+                className="text-left px-4 py-3 font-medium text-muted-foreground cursor-pointer hover:text-foreground select-none"
+                onClick={() => handleSort("enrollmentDate")}
+              >
+                Enrolled <SortIcon col="enrollmentDate" />
+              </th>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={5} className="text-center py-12 text-muted-foreground">
-                  Loading...
-                </td>
+                <td colSpan={5} className="text-center py-12 text-muted-foreground">Loading...</td>
               </tr>
             ) : students.length === 0 ? (
               <tr>
-                <td colSpan={5} className="text-center py-12 text-muted-foreground">
-                  No students found.
-                </td>
+                <td colSpan={5} className="text-center py-12 text-muted-foreground">No students found.</td>
               </tr>
             ) : (
               students.map((s) => (
@@ -140,33 +179,18 @@ export default function AdminStudentsPage() {
                   className="border-b last:border-0 hover:bg-muted/30 cursor-pointer transition-colors"
                   onClick={() => router.push(`/admin/students/${s.id}`)}
                 >
-                  <td className="px-4 py-3 font-medium">
-                    {s.firstName} {s.lastName}
-                  </td>
+                  <td className="px-4 py-3 font-medium">{s.firstName} {s.lastName}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{calcAge(s.dateOfBirth)}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{s.classrooms?.[0]?.name ?? "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">
-                    {calcAge(s.dateOfBirth)}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {s.classrooms?.[0]?.name ?? "—"}
+                    {s.enrollmentDate ? new Date(s.enrollmentDate).toLocaleDateString() : "—"}
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        s.isActive
-                          ? "bg-green-100 text-green-800"
-                          : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      s.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
+                    }`}>
                       {s.isActive ? "Active" : "Inactive"}
                     </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); router.push(`/admin/students/${s.id}`); }}
-                      className="text-primary hover:underline text-sm"
-                    >
-                      View
-                    </button>
                   </td>
                 </tr>
               ))
@@ -176,12 +200,19 @@ export default function AdminStudentsPage() {
       </div>
 
       {/* Pagination */}
-      {meta.totalPages > 1 && (
+      {meta.total > 0 && (
         <div className="flex items-center justify-between mt-4 text-sm">
           <span className="text-muted-foreground">
-            Page {meta.page} of {meta.totalPages}
+            Showing {start}–{end} of {meta.total} students
           </span>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              disabled={page === 1}
+              onClick={() => setPage(1)}
+              className="px-2 py-1 border rounded-md disabled:opacity-40 hover:bg-muted/50 text-xs"
+            >
+              «
+            </button>
             <button
               disabled={page === 1}
               onClick={() => setPage((p) => p - 1)}
@@ -189,12 +220,33 @@ export default function AdminStudentsPage() {
             >
               Previous
             </button>
+            {Array.from({ length: Math.min(5, meta.totalPages) }, (_, i) => {
+              const pageNum = Math.max(1, Math.min(page - 2 + i, meta.totalPages - 4 + i));
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setPage(pageNum)}
+                  className={`px-3 py-1 border rounded-md text-xs ${
+                    pageNum === page ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted/50"
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
             <button
               disabled={page === meta.totalPages}
               onClick={() => setPage((p) => p + 1)}
               className="px-3 py-1 border rounded-md disabled:opacity-40 hover:bg-muted/50"
             >
               Next
+            </button>
+            <button
+              disabled={page === meta.totalPages}
+              onClick={() => setPage(meta.totalPages)}
+              className="px-2 py-1 border rounded-md disabled:opacity-40 hover:bg-muted/50 text-xs"
+            >
+              »
             </button>
           </div>
         </div>

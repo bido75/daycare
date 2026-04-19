@@ -7,7 +7,7 @@ export class StudentsService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(filters: ListStudentsDto) {
-    const { search, classroomId, status, page = 1, limit = 20 } = filters;
+    const { search, classroomId, status, sortBy = 'lastName', sortOrder = 'asc', page = 1, limit = 20 } = filters;
     const skip = (Number(page) - 1) * Number(limit);
 
     const where: any = {};
@@ -29,6 +29,18 @@ export class StudentsService {
       where.isActive = false;
     }
 
+    // Build orderBy based on sortBy
+    let orderBy: any;
+    if (sortBy === 'name') {
+      orderBy = [{ lastName: sortOrder }, { firstName: sortOrder }];
+    } else if (sortBy === 'enrollmentDate') {
+      orderBy = [{ enrollmentDate: sortOrder }, { lastName: 'asc' }];
+    } else if (sortBy === 'dateOfBirth') {
+      orderBy = [{ dateOfBirth: sortOrder }];
+    } else {
+      orderBy = [{ lastName: sortOrder }, { firstName: 'asc' }];
+    }
+
     const [total, students] = await Promise.all([
       this.prisma.student.count({ where }),
       this.prisma.student.findMany({
@@ -45,7 +57,7 @@ export class StudentsService {
         },
         skip,
         take: Number(limit),
-        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        orderBy,
       }),
     ]);
 
@@ -95,13 +107,57 @@ export class StudentsService {
 
   async update(id: string, dto: UpdateStudentDto) {
     await this.findOne(id);
+    const { classroomId, ...rest } = dto;
+    const data: any = {
+      ...rest,
+      dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
+    };
+    if (classroomId) {
+      data.classrooms = { set: [{ id: classroomId }] };
+    }
     return this.prisma.student.update({
       where: { id },
-      data: {
-        ...dto,
-        dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
-      },
+      data,
+      include: { classrooms: true },
     });
+  }
+
+  async getStudentsByParent(parentId: string) {
+    return this.prisma.student.findMany({
+      where: {
+        studentParents: { some: { parentId } },
+      },
+      include: {
+        classrooms: true,
+        emergencyContacts: true,
+      },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+    });
+  }
+
+  async getStudentStats() {
+    const [total, active, inactive, byClassroom] = await Promise.all([
+      this.prisma.student.count(),
+      this.prisma.student.count({ where: { isActive: true } }),
+      this.prisma.student.count({ where: { isActive: false } }),
+      this.prisma.classroom.findMany({
+        include: {
+          _count: { select: { students: true } },
+        },
+        orderBy: { name: 'asc' },
+      }),
+    ]);
+
+    return {
+      total,
+      active,
+      inactive,
+      byClassroom: byClassroom.map((c) => ({
+        classroomId: c.id,
+        classroomName: c.name,
+        count: c._count.students,
+      })),
+    };
   }
 
   async addEmergencyContact(studentId: string, dto: AddEmergencyContactDto) {

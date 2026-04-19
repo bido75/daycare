@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateClassroomDto, UpdateClassroomDto, AssignStudentDto, ListClassroomsDto } from './classroom.dto';
+import { CreateClassroomDto, UpdateClassroomDto, AssignStudentDto, ListClassroomsDto, AssignStaffDto } from './classroom.dto';
 
 @Injectable()
 export class ClassroomsService {
@@ -30,7 +30,9 @@ export class ClassroomsService {
       this.prisma.classroom.findMany({
         where,
         include: {
-          leadStaff: { include: { user: { select: { email: true } } } },
+          leadStaff: {
+            include: { user: { select: { email: true } } },
+          },
           students: {
             where: { isActive: true },
             select: { id: true, firstName: true, lastName: true },
@@ -42,8 +44,15 @@ export class ClassroomsService {
       }),
     ]);
 
+    const enriched = classrooms.map((c) => ({
+      ...c,
+      studentCount: c.students.length,
+      capacityUtilization: c.capacity > 0 ? Math.round((c.students.length / c.capacity) * 100) : 0,
+      availableSpots: Math.max(0, c.capacity - c.students.length),
+    }));
+
     return {
-      data: classrooms,
+      data: enriched,
       meta: {
         total,
         page: Number(page),
@@ -57,13 +66,16 @@ export class ClassroomsService {
     const classroom = await this.prisma.classroom.findUnique({
       where: { id },
       include: {
-        leadStaff: { include: { user: { select: { email: true } } } },
+        leadStaff: {
+          include: { user: { select: { email: true, role: true } } },
+        },
         students: {
           include: {
             studentParents: {
               include: { parent: { select: { firstName: true, lastName: true } } },
             },
           },
+          orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
         },
         registrations: {
           where: { status: 'PENDING' },
@@ -76,7 +88,14 @@ export class ClassroomsService {
       throw new NotFoundException(`Classroom ${id} not found`);
     }
 
-    return classroom;
+    return {
+      ...classroom,
+      studentCount: classroom.students.length,
+      capacityUtilization: classroom.capacity > 0
+        ? Math.round((classroom.students.length / classroom.capacity) * 100)
+        : 0,
+      availableSpots: Math.max(0, classroom.capacity - classroom.students.length),
+    };
   }
 
   async update(id: string, dto: UpdateClassroomDto) {
@@ -123,5 +142,42 @@ export class ClassroomsService {
       },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
+  }
+
+  async assignStaff(classroomId: string, dto: AssignStaffDto) {
+    await this.findOne(classroomId);
+    // Set as lead staff for this classroom
+    return this.prisma.classroom.update({
+      where: { id: classroomId },
+      data: { leadStaffId: dto.staffId },
+      include: { leadStaff: { include: { user: { select: { email: true } } } } },
+    });
+  }
+
+  async removeStaff(classroomId: string) {
+    await this.findOne(classroomId);
+    return this.prisma.classroom.update({
+      where: { id: classroomId },
+      data: { leadStaffId: null },
+      include: { leadStaff: true },
+    });
+  }
+
+  async getClassroomStats() {
+    const classrooms = await this.prisma.classroom.findMany({
+      include: {
+        _count: { select: { students: true } },
+      },
+    });
+
+    return classrooms.map((c) => ({
+      id: c.id,
+      name: c.name,
+      capacity: c.capacity,
+      enrolled: c._count.students,
+      availableSpots: Math.max(0, c.capacity - c._count.students),
+      occupancyRate: c.capacity > 0 ? Math.round((c._count.students / c.capacity) * 100) : 0,
+      isActive: c.isActive,
+    }));
   }
 }

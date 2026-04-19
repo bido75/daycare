@@ -9,10 +9,12 @@ import {
   MessageCircle,
   AlertCircle,
   FolderOpen,
+  BookOpen,
 } from "lucide-react";
 
 const navItems = [
-  { label: "My Classroom", href: "/staff", icon: LayoutDashboard },
+  { label: "Dashboard", href: "/staff", icon: LayoutDashboard },
+  { label: "My Classroom", href: "/staff/classroom", icon: BookOpen },
   { label: "Student Roster", href: "/staff/students", icon: Users },
   { label: "Attendance", href: "/staff/attendance", icon: CalendarCheck },
   { label: "Daily Reports", href: "/staff/daily-reports", icon: FileText },
