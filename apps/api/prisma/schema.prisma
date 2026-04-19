@@ -1,0 +1,400 @@
+﻿// Creative Kids Academy — Prisma Schema
+// PostgreSQL · 24 models
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  STAFF
+  PARENT
+}
+
+model User {
+  id                 String         @id @default(cuid())
+  email              String         @unique
+  passwordHash       String
+  role               Role           @default(PARENT)
+  isActive           Boolean        @default(true)
+  isTwoFactorEnabled Boolean        @default(false)
+  twoFactorSecret    String?
+  refreshToken       String?
+  lastLoginAt        DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  parentProfile      ParentProfile?
+  staffProfile       StaffProfile?
+  sentMessages       Message[]      @relation("SentMessages")
+  notifications      Notification[]
+  activityLogs       ActivityLog[]
+}
+
+model ParentProfile {
+  id             String          @id @default(cuid())
+  userId         String          @unique
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName      String
+  lastName       String
+  phone          String?
+  address        String?
+  city           String?
+  state          String?
+  zip            String?
+  photoUrl       String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  studentParents StudentParent[]
+  invoices       Invoice[]
+  messageThreads MessageThread[]
+}
+
+model StaffProfile {
+  id           String        @id @default(cuid())
+  userId       String        @unique
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName    String
+  lastName     String
+  phone        String?
+  position     String?
+  hireDate     DateTime?
+  photoUrl     String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  classrooms   Classroom[]
+  attendance   Attendance[]
+  dailyReports DailyReport[]
+  incidentLogs IncidentLog[]
+}
+
+model Student {
+  id                String             @id @default(cuid())
+  firstName         String
+  lastName          String
+  dateOfBirth       DateTime
+  gender            String?
+  allergies         String?
+  medicalNotes      String?
+  photoUrl          String?
+  isActive          Boolean            @default(true)
+  enrollmentDate    DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  studentParents    StudentParent[]
+  emergencyContacts EmergencyContact[]
+  authorizedPickups AuthorizedPickup[]
+  classrooms        Classroom[]        @relation("ClassroomStudents")
+  registrations     Registration[]
+  documents         Document[]
+  attendance        Attendance[]
+  dailyReports      DailyReport[]
+  incidentLogs      IncidentLog[]
+  invoiceItems      InvoiceItem[]
+}
+
+model StudentParent {
+  id           String        @id @default(cuid())
+  studentId    String
+  student      Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  parentId     String
+  parent       ParentProfile @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  relationship String        @default("Parent")
+  isPrimary    Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+
+  @@unique([studentId, parentId])
+}
+
+model EmergencyContact {
+  id           String   @id @default(cuid())
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  firstName    String
+  lastName     String
+  relationship String
+  phone        String
+  email        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model AuthorizedPickup {
+  id           String   @id @default(cuid())
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  firstName    String
+  lastName     String
+  relationship String
+  phone        String
+  photoUrl     String?
+  idVerified   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Classroom {
+  id            String        @id @default(cuid())
+  name          String
+  ageGroupMin   Int
+  ageGroupMax   Int
+  capacity      Int
+  leadStaffId   String?
+  leadStaff     StaffProfile? @relation(fields: [leadStaffId], references: [id])
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  students      Student[]     @relation("ClassroomStudents")
+  registrations Registration[]
+  attendance    Attendance[]
+}
+
+model Registration {
+  id          String    @id @default(cuid())
+  studentId   String
+  student     Student   @relation(fields: [studentId], references: [id])
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id])
+  startDate   DateTime
+  endDate     DateTime?
+  status      String    @default("PENDING")
+  schedule    Json?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Document {
+  id         String   @id @default(cuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  type       String
+  name       String
+  s3Key      String
+  s3Url      String?
+  mimeType   String?
+  sizeBytes  Int?
+  uploadedAt DateTime @default(now())
+  expiresAt  DateTime?
+  verified   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model MessageThread {
+  id         String        @id @default(cuid())
+  subject    String?
+  parentId   String
+  parent     ParentProfile @relation(fields: [parentId], references: [id])
+  isArchived Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  messages   Message[]
+}
+
+model Message {
+  id            String        @id @default(cuid())
+  threadId      String
+  thread        MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  senderId      String
+  sender        User          @relation("SentMessages", fields: [senderId], references: [id])
+  body          String
+  attachmentUrl String?
+  readAt        DateTime?
+  createdAt     DateTime      @default(now())
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String
+  isRead    Boolean   @default(false)
+  readAt    DateTime?
+  metadata  Json?
+  createdAt DateTime  @default(now())
+}
+
+model SmsLog {
+  id           String   @id @default(cuid())
+  to           String
+  from         String
+  body         String
+  status       String
+  twilioSid    String?
+  errorCode    String?
+  errorMessage String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model FeeType {
+  id                String        @id @default(cuid())
+  name              String
+  description       String?
+  amount            Decimal       @db.Decimal(10, 2)
+  isRecurring       Boolean       @default(false)
+  recurringInterval String?
+  isActive          Boolean       @default(true)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  invoiceItems      InvoiceItem[]
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  parentId        String
+  parent          ParentProfile @relation(fields: [parentId], references: [id])
+  invoiceNumber   String        @unique
+  status          String        @default("DRAFT")
+  issueDate       DateTime      @default(now())
+  dueDate         DateTime
+  subtotal        Decimal       @db.Decimal(10, 2)
+  taxAmount       Decimal       @db.Decimal(10, 2) @default(0)
+  discountAmount  Decimal       @db.Decimal(10, 2) @default(0)
+  totalAmount     Decimal       @db.Decimal(10, 2)
+  paidAmount      Decimal       @db.Decimal(10, 2) @default(0)
+  notes           String?
+  stripePriceId   String?
+  stripeInvoiceId String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  items           InvoiceItem[]
+  payments        Payment[]
+  receipts        Receipt[]
+}
+
+model InvoiceItem {
+  id          String    @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  feeTypeId   String?
+  feeType     FeeType?  @relation(fields: [feeTypeId], references: [id])
+  studentId   String?
+  student     Student?  @relation(fields: [studentId], references: [id])
+  description String
+  quantity    Int       @default(1)
+  unitPrice   Decimal   @db.Decimal(10, 2)
+  totalPrice  Decimal   @db.Decimal(10, 2)
+  createdAt   DateTime  @default(now())
+}
+
+model Payment {
+  id                    String    @id @default(cuid())
+  invoiceId             String
+  invoice               Invoice   @relation(fields: [invoiceId], references: [id])
+  amount                Decimal   @db.Decimal(10, 2)
+  method                String
+  status                String    @default("PENDING")
+  stripePaymentIntentId String?
+  stripeChargeId        String?
+  transactionRef        String?
+  paidAt                DateTime?
+  notes                 String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  receipt               Receipt?
+}
+
+model Receipt {
+  id            String   @id @default(cuid())
+  invoiceId     String
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id])
+  paymentId     String   @unique
+  payment       Payment  @relation(fields: [paymentId], references: [id])
+  receiptNumber String   @unique
+  s3Key         String?
+  s3Url         String?
+  issuedAt      DateTime @default(now())
+  createdAt     DateTime @default(now())
+}
+
+model Attendance {
+  id           String        @id @default(cuid())
+  studentId    String
+  student      Student       @relation(fields: [studentId], references: [id])
+  classroomId  String
+  classroom    Classroom     @relation(fields: [classroomId], references: [id])
+  staffId      String?
+  staff        StaffProfile? @relation(fields: [staffId], references: [id])
+  date         DateTime      @db.Date
+  checkInTime  DateTime?
+  checkOutTime DateTime?
+  status       String        @default("PRESENT")
+  notes        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@unique([studentId, date])
+}
+
+model DailyReport {
+  id         String       @id @default(cuid())
+  studentId  String
+  student    Student      @relation(fields: [studentId], references: [id])
+  staffId    String
+  staff      StaffProfile @relation(fields: [staffId], references: [id])
+  date       DateTime     @db.Date
+  mood       String?
+  meals      Json?
+  naps       Json?
+  activities Json?
+  toileting  Json?
+  notes      String?
+  photoUrls  String[]
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@unique([studentId, date])
+}
+
+model IncidentLog {
+  id               String       @id @default(cuid())
+  studentId        String
+  student          Student      @relation(fields: [studentId], references: [id])
+  staffId          String
+  staff            StaffProfile @relation(fields: [staffId], references: [id])
+  occurredAt       DateTime
+  type             String
+  description      String
+  actionTaken      String?
+  parentNotified   Boolean      @default(false)
+  parentNotifiedAt DateTime?
+  witnessNames     String[]
+  attachmentUrls   String[]
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String?
+  entityId  String?
+  metadata  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
