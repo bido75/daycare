@@ -1,4 +1,4 @@
-﻿// Creative Kids Academy — Prisma Schema
+// Creative Kids Academy — Prisma Schema
 // PostgreSQL · 24 models
 
 generator client {
@@ -7,7 +7,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum Role {
