@@ -1,6 +1,7 @@
 "use client";
 
 import { Sidebar } from "@/app/components/sidebar";
+import { NotificationBell } from "@/app/components/notification-bell";
 import {
   LayoutDashboard,
   Baby,
@@ -32,6 +33,9 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
     <div className="min-h-screen bg-muted/30">
       <Sidebar navItems={navItems} portalTitle="Parent Portal" />
       <div className="md:pl-56">
+        <div className="flex items-center justify-end px-6 py-3 border-b border-border bg-card md:flex hidden">
+          <NotificationBell viewAllHref="/parent/notifications" />
+        </div>
         <main className="p-6">{children}</main>
       </div>
     </div>
