@@ -1,3 +1,5 @@
+"use client";
+
 import { Sidebar } from "@/app/components/sidebar";
 import {
   LayoutDashboard,

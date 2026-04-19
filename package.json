@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "daycare-monorepo",
   "version": "0.1.0",
   "private": true,
@@ -11,5 +11,10 @@
     "dev:api": "npm run start:dev --workspace=apps/api",
     "build:web": "npm run build --workspace=apps/web",
     "build:api": "npm run build --workspace=apps/api"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.7.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1"
   }
 }

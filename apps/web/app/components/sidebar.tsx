@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Menu, X, LogOut, Heart } from "lucide-react";
@@ -23,7 +23,11 @@ export function Sidebar({ navItems, portalTitle }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const user = typeof window !== "undefined" ? getStoredUser() : null;
+  const [user, setUser] = useState<ReturnType<typeof getStoredUser>>(null);
+
+  useEffect(() => {
+    setUser(getStoredUser());
+  }, []);
 
   async function handleLogout() {
     await logout();
