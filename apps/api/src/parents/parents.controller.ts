@@ -1,12 +1,12 @@
 import {
-  Controller, Get, Param, Query, UseGuards, Request,
+  Controller, Get, Put, Param, Query, Body, UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ParentsService } from './parents.service';
-import { ListParentsDto } from './parents.dto';
+import { ListParentsDto, UpdateParentProfileDto, UpdateParentPreferencesDto } from './parents.dto';
 
 @Controller('parents')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -25,10 +25,34 @@ export class ParentsController {
     return this.parentsService.getParentStats();
   }
 
+  @Get('me')
+  @Roles('PARENT')
+  getMe(@CurrentUser() user: any) {
+    return this.parentsService.getMe(user.userId);
+  }
+
+  @Put('me')
+  @Roles('PARENT')
+  updateMe(@CurrentUser() user: any, @Body() dto: UpdateParentProfileDto) {
+    return this.parentsService.updateMe(user.userId, dto);
+  }
+
   @Get('me/students')
   @Roles('PARENT')
   getMyStudents(@CurrentUser() user: any) {
     return this.parentsService.getMyStudents(user.userId);
+  }
+
+  @Get('me/preferences')
+  @Roles('PARENT')
+  getPreferences(@CurrentUser() user: any) {
+    return this.parentsService.getPreferences(user.userId);
+  }
+
+  @Put('me/preferences')
+  @Roles('PARENT')
+  updatePreferences(@CurrentUser() user: any, @Body() dto: UpdateParentPreferencesDto) {
+    return this.parentsService.updatePreferences(user.userId, dto);
   }
 
   @Get(':id')

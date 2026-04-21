@@ -63,7 +63,7 @@ export default function ParentDocumentsPage() {
       const [docsRes, childrenRes, reqRes] = await Promise.all([
         api.get("/documents", { params: { limit: "100" } }),
         api.get("/parents/me/students"),
-        api.get("/settings/document_requirements"),
+        api.get("/settings/public/document_requirements"),
       ]);
       setDocuments(docsRes.data?.data ?? []);
       setChildren(childrenRes.data ?? []);

@@ -18,6 +18,11 @@ export class PublicSettingsController {
   getOperatingHours() {
     return this.settingsService.get('operating_hours');
   }
+
+  @Get('document_requirements')
+  getDocumentRequirements() {
+    return this.settingsService.get('document_requirements');
+  }
 }
 
 @Controller('settings')

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import api from "@/lib/api";
 import { Baby, Plus } from "lucide-react";
 
@@ -88,12 +89,12 @@ export default function ParentChildrenPage() {
                 </p>
               </div>
               {reg.student.isActive && (
-                <button
-                  onClick={() => {}}
+                <Link
+                  href={`/parent/children/${reg.student.id}`}
                   className="text-sm text-primary hover:underline flex-shrink-0"
                 >
                   View Profile
-                </button>
+                </Link>
               )}
             </div>
           ))}

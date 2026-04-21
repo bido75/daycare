@@ -1,6 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ListParentsDto } from './parents.dto';
+import { ListParentsDto, UpdateParentProfileDto, UpdateParentPreferencesDto } from './parents.dto';
+
+const DEFAULT_PREFERENCES = {
+  emailNotifications: true,
+  smsNotifications: false,
+  dailyReportUpdates: true,
+  paymentReminders: true,
+  attendanceAlerts: true,
+};
 
 @Injectable()
 export class ParentsService {
@@ -131,5 +139,47 @@ export class ParentsService {
       active,
       inactive: total - active,
     };
+  }
+
+  async getMe(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { parentProfile: true },
+    });
+    if (!user || !user.parentProfile) throw new NotFoundException('Parent profile not found');
+    return {
+      id: user.id,
+      email: user.email,
+      parentProfile: user.parentProfile,
+    };
+  }
+
+  async updateMe(userId: string, dto: UpdateParentProfileDto) {
+    const profile = await this.prisma.parentProfile.findUnique({ where: { userId } });
+    if (!profile) throw new NotFoundException('Parent profile not found');
+    const updated = await this.prisma.parentProfile.update({
+      where: { userId },
+      data: dto,
+    });
+    return updated;
+  }
+
+  async getPreferences(userId: string) {
+    const profile = await this.prisma.parentProfile.findUnique({ where: { userId } });
+    if (!profile) throw new NotFoundException('Parent profile not found');
+    const prefs = (profile.preferences as any) ?? DEFAULT_PREFERENCES;
+    return { ...DEFAULT_PREFERENCES, ...prefs };
+  }
+
+  async updatePreferences(userId: string, dto: UpdateParentPreferencesDto) {
+    const profile = await this.prisma.parentProfile.findUnique({ where: { userId } });
+    if (!profile) throw new NotFoundException('Parent profile not found');
+    const existing = (profile.preferences as any) ?? DEFAULT_PREFERENCES;
+    const merged = { ...DEFAULT_PREFERENCES, ...existing, ...dto };
+    await this.prisma.parentProfile.update({
+      where: { userId },
+      data: { preferences: merged },
+    });
+    return merged;
   }
 }

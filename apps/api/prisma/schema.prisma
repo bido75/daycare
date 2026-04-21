@@ -48,6 +48,7 @@ model ParentProfile {
   state          String?
   zip            String?
   photoUrl       String?
+  preferences    Json?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
