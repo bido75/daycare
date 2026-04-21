@@ -1,6 +1,14 @@
 import axios from 'axios';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+const getBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    // In browser: use same hostname as the page, port 4000
+    return `http://${window.location.hostname}:4000/api`;
+  }
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+};
+
+const BASE_URL = getBaseUrl();
 
 export const api = axios.create({
   baseURL: BASE_URL,

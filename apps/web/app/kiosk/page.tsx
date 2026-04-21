@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Html5QrcodeScanner } from "html5-qrcode";
 import { CheckCircle, XCircle, QrCode, LogIn, LogOut, Users } from "lucide-react";
 import api from "@/lib/api";
 
@@ -27,23 +26,38 @@ export default function KioskPage() {
   const [step, setStep] = useState<Step>("scan");
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
-  const [now, setNow] = useState(new Date());
-  const [scanning, setScanning] = useState(false);
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [now, setNow] = useState<Date | null>(null);
+  const scannerRef = useRef<any>(null);
   const resetTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const scanningRef = useRef(false);
 
-  // Clock
+  // Mount flag + clock (client-only to avoid hydration mismatch)
   useEffect(() => {
+    setMounted(true);
+    setNow(new Date());
     const interval = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  const stopScanner = useCallback(async () => {
+    if (scannerRef.current) {
+      try {
+        const state = scannerRef.current.getState();
+        if (state === 2) { // SCANNING
+          await scannerRef.current.stop();
+        }
+      } catch (e) { /* ignore */ }
+      scannerRef.current = null;
+    }
   }, []);
 
   const resetToScan = useCallback(() => {
     if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
     setScanResult(null);
     setErrorMsg("");
+    scanningRef.current = false;
     setStep("scan");
-    setScanning(false);
   }, []);
 
   // Auto-reset after success/error
@@ -56,47 +70,63 @@ export default function KioskPage() {
     };
   }, [step, resetToScan]);
 
-  // QR Scanner
+  // QR Scanner — use Html5Qrcode directly for auto camera start
   useEffect(() => {
-    if (step !== "scan" || scanning) return;
+    if (step !== "scan" || !mounted) return;
 
-    const scanner = new Html5QrcodeScanner(
-      "qr-reader",
-      { fps: 10, qrbox: { width: 300, height: 300 }, aspectRatio: 1 },
-      false
-    );
+    let cancelled = false;
 
-    scanner.render(
-      async (decodedText) => {
-        scanner.clear();
-        scannerRef.current = null;
-        setScanning(true);
+    const startScanner = async () => {
+      // Dynamic import to avoid SSR issues
+      const { Html5Qrcode } = await import("html5-qrcode");
 
-        try {
-          const endpoint = mode === "checkin" ? "/attendance/qr/check-in" : "/attendance/qr/check-out";
-          const payload = mode === "checkin"
-            ? { qrToken: decodedText }
-            : { qrToken: decodedText };
+      if (cancelled) return;
 
-          const { data } = await api.post(endpoint, payload);
-          setScanResult(data);
-          setStep("confirm");
-        } catch (err: any) {
-          setErrorMsg(err?.response?.data?.message || "Invalid QR code or scan failed.");
-          setStep("error");
-        }
-      },
-      (err) => {
-        // scanning errors are normal — ignore
+      const html5QrCode = new Html5Qrcode("qr-reader");
+      scannerRef.current = html5QrCode;
+
+      try {
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 300, height: 300 }, aspectRatio: 1 },
+          async (decodedText) => {
+            if (scanningRef.current) return; // prevent double-scan
+            scanningRef.current = true;
+
+            try {
+              await html5QrCode.stop();
+            } catch (e) { /* ignore */ }
+            scannerRef.current = null;
+
+            try {
+              const endpoint = mode === "checkin" ? "/attendance/qr/check-in" : "/attendance/qr/check-out";
+              const { data } = await api.post(endpoint, { qrToken: decodedText });
+              setScanResult(data);
+              setStep("confirm");
+            } catch (err: any) {
+              setErrorMsg(err?.response?.data?.message || "Invalid QR code or scan failed.");
+              setStep("error");
+            }
+          },
+          () => { /* scan miss — normal, ignore */ }
+        );
+      } catch (err) {
+        console.error("Camera start failed:", err);
+        // Fallback: camera not available or permission denied
+        setErrorMsg("Camera access denied or not available. Please allow camera permissions and try again.");
+        setStep("error");
       }
-    );
+    };
 
-    scannerRef.current = scanner;
+    // Small delay to ensure DOM element exists
+    const timer = setTimeout(startScanner, 200);
 
     return () => {
-      scanner.clear().catch(() => {});
+      cancelled = true;
+      clearTimeout(timer);
+      stopScanner();
     };
-  }, [step, scanning, mode]);
+  }, [step, mounted, mode, stopScanner]);
 
   const formatTime = (d: Date) =>
     d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -115,16 +145,20 @@ export default function KioskPage() {
           <h1 className="text-3xl font-bold text-white tracking-tight">Creative Kids Academy</h1>
           <p className="text-slate-400 text-sm mt-0.5">Parent Check-In / Check-Out Kiosk</p>
         </div>
-        <div className="text-right">
-          <div className="text-4xl font-mono font-bold text-white">{formatTime(now)}</div>
-          <div className="text-slate-400 text-sm mt-0.5">{formatDate(now)}</div>
+        <div className="text-right" suppressHydrationWarning>
+          <div className="text-4xl font-mono font-bold text-white" suppressHydrationWarning>
+            {now ? formatTime(now) : "--:--:--"}
+          </div>
+          <div className="text-slate-400 text-sm mt-0.5" suppressHydrationWarning>
+            {now ? formatDate(now) : ""}
+          </div>
         </div>
       </header>
 
       {/* Mode Toggle */}
       <div className="flex justify-center mt-6 gap-3">
         <button
-          onClick={() => { setMode("checkin"); resetToScan(); }}
+          onClick={() => { setMode("checkin"); stopScanner().then(resetToScan); }}
           className={`flex items-center gap-2 px-8 py-3 rounded-full text-lg font-semibold transition-all ${
             mode === "checkin"
               ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
@@ -135,7 +169,7 @@ export default function KioskPage() {
           Check In
         </button>
         <button
-          onClick={() => { setMode("checkout"); resetToScan(); }}
+          onClick={() => { setMode("checkout"); stopScanner().then(resetToScan); }}
           className={`flex items-center gap-2 px-8 py-3 rounded-full text-lg font-semibold transition-all ${
             mode === "checkout"
               ? "bg-amber-500 text-white shadow-lg shadow-amber-500/30"
@@ -157,7 +191,7 @@ export default function KioskPage() {
                 Scan Your QR Code to {mode === "checkin" ? "Check In" : "Check Out"}
               </h2>
               <p className="text-slate-400 mt-2">
-                Open the parent app → My QR Code → show the code to the camera
+                Open the parent app &rarr; My QR Code &rarr; show the code to the camera
               </p>
             </div>
             <div
@@ -198,7 +232,7 @@ export default function KioskPage() {
                     </div>
                     {actioned ? (
                       <span className="text-emerald-400 text-sm font-medium">
-                        {mode === "checkin" ? "✓ Checked In" : "✓ Checked Out"}
+                        {mode === "checkin" ? "Checked In" : "Checked Out"}
                       </span>
                     ) : (
                       <span className="text-slate-500 text-sm">Already {mode === "checkin" ? "checked in" : "checked out"}</span>
@@ -221,22 +255,22 @@ export default function KioskPage() {
         )}
 
         {step === "success" && (
-          <div className="flex flex-col items-center gap-6 text-center animate-in fade-in zoom-in duration-300">
+          <div className="flex flex-col items-center gap-6 text-center">
             <CheckCircle className="h-28 w-28 text-emerald-400" />
             <h2 className="text-4xl font-bold text-white">
               {mode === "checkin" ? "Check-In" : "Check-Out"} Complete!
             </h2>
             <p className="text-slate-400 text-xl">Have a wonderful day!</p>
-            <p className="text-slate-500 text-sm">Resetting in 5 seconds…</p>
+            <p className="text-slate-500 text-sm">Resetting in 5 seconds...</p>
           </div>
         )}
 
         {step === "error" && (
-          <div className="flex flex-col items-center gap-6 text-center animate-in fade-in zoom-in duration-300">
+          <div className="flex flex-col items-center gap-6 text-center">
             <XCircle className="h-28 w-28 text-red-400" />
             <h2 className="text-4xl font-bold text-white">Scan Failed</h2>
             <p className="text-slate-300 text-xl max-w-md">{errorMsg}</p>
-            <p className="text-slate-500 text-sm">Resetting in 5 seconds…</p>
+            <p className="text-slate-500 text-sm">Resetting in 5 seconds...</p>
             <button
               onClick={resetToScan}
               className="px-8 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-lg font-semibold transition-colors"
@@ -249,7 +283,7 @@ export default function KioskPage() {
 
       {/* Footer */}
       <footer className="text-center py-4 text-slate-600 text-sm border-t border-slate-800">
-        Creative Kids Academy · Kiosk Mode · {mode === "checkin" ? "Check In" : "Check Out"}
+        Creative Kids Academy - Kiosk Mode - {mode === "checkin" ? "Check In" : "Check Out"}
       </footer>
     </div>
   );

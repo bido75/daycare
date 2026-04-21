@@ -8,7 +8,7 @@ async function bootstrap() {
   app.use(cookieParser());
 
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: true,
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -16,7 +16,7 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
-  await app.listen(process.env.PORT ?? 4000);
-  console.log(`API running on: http://localhost:${process.env.PORT ?? 4000}/api`);
+  await app.listen(process.env.PORT ?? 4000, '0.0.0.0');
+  console.log(`API running on: http://0.0.0.0:${process.env.PORT ?? 4000}/api`);
 }
 bootstrap();
