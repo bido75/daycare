@@ -1,10 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { UpdateStudentDto, AddEmergencyContactDto, AddAuthorizedPickupDto, ListStudentsDto } from './student.dto';
 
 @Injectable()
 export class StudentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private storageService: StorageService,
+  ) {}
 
   async findAll(filters: ListStudentsDto) {
     const { search, classroomId, status, sortBy = 'lastName', sortOrder = 'asc', page = 1, limit = 20 } = filters;
@@ -184,5 +188,23 @@ export class StudentsService {
     return this.prisma.authorizedPickup.delete({
       where: { id: pickupId },
     });
+  }
+
+  async uploadAvatar(studentId: string, userId: string, role: string, file: Express.Multer.File) {
+    await this.findOne(studentId);
+    if (role === 'PARENT') {
+      const parent = await this.prisma.parentProfile.findUnique({
+        where: { userId },
+        include: { studentParents: { where: { studentId } } },
+      });
+      if (!parent || parent.studentParents.length === 0) {
+        throw new ForbiddenException('Access denied to this student');
+      }
+    }
+    const ext = file.mimetype.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg';
+    const key = `students/${studentId}/avatar.${ext}`;
+    const { url } = await this.storageService.uploadFile(file.buffer, key, file.mimetype);
+    await this.prisma.student.update({ where: { id: studentId }, data: { photoUrl: url } });
+    return { photoUrl: url };
   }
 }

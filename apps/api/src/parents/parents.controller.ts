@@ -1,6 +1,8 @@
 import {
-  Controller, Get, Put, Param, Query, Body, UseGuards,
+  Controller, Get, Put, Post, Param, Query, Body, UseGuards,
+  UseInterceptors, UploadedFile, BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -53,6 +55,22 @@ export class ParentsController {
   @Roles('PARENT')
   updatePreferences(@CurrentUser() user: any, @Body() dto: UpdateParentPreferencesDto) {
     return this.parentsService.updatePreferences(user.userId, dto);
+  }
+
+  @Post('me/avatar')
+  @Roles('PARENT')
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
+        return cb(new BadRequestException('Only JPEG, PNG, and WebP images are allowed'), false);
+      }
+      cb(null, true);
+    },
+  }))
+  uploadAvatar(@CurrentUser() user: any, @UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No file provided');
+    return this.parentsService.uploadAvatar(user.userId, file);
   }
 
   @Get(':id')

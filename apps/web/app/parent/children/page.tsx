@@ -68,8 +68,12 @@ export default function ParentChildrenPage() {
         <div className="space-y-4">
           {registrations.map((reg) => (
             <div key={reg.id} className="bg-card border rounded-lg p-5 flex items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Baby className="h-6 w-6 text-primary" />
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                {reg.student.photoUrl ? (
+                  <img src={reg.student.photoUrl} alt={reg.student.firstName} className="h-full w-full object-cover" />
+                ) : (
+                  <Baby className="h-6 w-6 text-primary" />
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">

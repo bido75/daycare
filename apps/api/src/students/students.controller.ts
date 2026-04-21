@@ -1,9 +1,12 @@
 import {
   Controller, Get, Patch, Post, Delete, Body, Param, Query, UseGuards,
+  UseInterceptors, UploadedFile, BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { StudentsService } from './students.service';
 import { UpdateStudentDto, AddEmergencyContactDto, AddAuthorizedPickupDto, ListStudentsDto } from './student.dto';
 
@@ -64,5 +67,25 @@ export class StudentsController {
   @Roles('ADMIN', 'SUPER_ADMIN')
   removeAuthorizedPickup(@Param('id') id: string, @Param('pickupId') pickupId: string) {
     return this.studentsService.removeAuthorizedPickup(id, pickupId);
+  }
+
+  @Post(':id/avatar')
+  @Roles('PARENT', 'ADMIN', 'SUPER_ADMIN')
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
+        return cb(new BadRequestException('Only JPEG, PNG, and WebP images are allowed'), false);
+      }
+      cb(null, true);
+    },
+  }))
+  uploadAvatar(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('No file provided');
+    return this.studentsService.uploadAvatar(id, user.userId, user.role, file);
   }
 }

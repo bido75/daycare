@@ -26,18 +26,30 @@ interface AcademyProfile {
   logo?: string;
 }
 
+interface UserAvatar {
+  photoUrl?: string;
+}
+
 export function Sidebar({ navItems, portalTitle }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<ReturnType<typeof getStoredUser>>(null);
   const [academy, setAcademy] = useState<AcademyProfile>({});
+  const [userAvatar, setUserAvatar] = useState<UserAvatar>({});
 
   useEffect(() => {
-    setUser(getStoredUser());
+    const storedUser = getStoredUser();
+    setUser(storedUser);
     api.get("/settings/academy_profile").then((res) => {
       if (res.data?.value) setAcademy(res.data.value);
     }).catch(() => {});
+    if (storedUser?.role === 'PARENT') {
+      api.get("/parents/me").then((res) => {
+        const photoUrl = res.data?.parentProfile?.photoUrl;
+        if (photoUrl) setUserAvatar({ photoUrl });
+      }).catch(() => {});
+    }
   }, []);
 
   async function handleLogout() {
@@ -96,11 +108,20 @@ export function Sidebar({ navItems, portalTitle }: SidebarProps) {
       {/* User + logout */}
       <div className="border-t border-border p-3">
         <div className="flex items-center justify-between">
-          <div className="min-w-0">
-            <div className="text-sm font-medium text-foreground truncate">
-              {user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email : "User"}
+          <div className="flex items-center gap-2 min-w-0">
+            {userAvatar.photoUrl ? (
+              <img src={userAvatar.photoUrl} alt="Avatar" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold flex-shrink-0">
+                {user?.firstName?.[0]?.toUpperCase() ?? user?.email?.[0]?.toUpperCase() ?? "?"}
+              </div>
+            )}
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-foreground truncate">
+                {user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email : "User"}
+              </div>
+              <div className="text-xs text-muted-foreground truncate">{user?.role}</div>
             </div>
-            <div className="text-xs text-muted-foreground truncate">{user?.role}</div>
           </div>
           <button
             onClick={handleLogout}

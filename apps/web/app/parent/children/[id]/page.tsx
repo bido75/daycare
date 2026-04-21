@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
 import {
   Baby, ArrowLeft, Calendar, BookOpen, FileText, Activity,
-  Phone, User, CheckCircle, XCircle, Loader2, AlertTriangle,
+  Phone, User, CheckCircle, XCircle, Loader2, AlertTriangle, Camera,
 } from "lucide-react";
+import { toast } from "sonner";
 
 interface Student {
   id: string;
@@ -18,6 +19,7 @@ interface Student {
   medicalNotes?: string;
   isActive: boolean;
   enrollmentDate?: string;
+  photoUrl?: string;
   classrooms?: { id: string; name: string }[];
   emergencyContacts?: { id: string; firstName: string; lastName: string; relationship: string; phone: string }[];
   documents?: { id: string; name: string; type: string; verified: boolean; expiresAt?: string }[];
@@ -51,6 +53,8 @@ export default function ChildProfilePage() {
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!params.id) return;
@@ -59,6 +63,26 @@ export default function ChildProfilePage() {
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, [params.id]);
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !student) return;
+    if (!file.type.startsWith("image/")) { toast.error("Please select an image file"); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5MB"); return; }
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await api.post(`/students/${student.id}/avatar`, form, { headers: { "Content-Type": "multipart/form-data" } });
+      setStudent((s) => s ? { ...s, photoUrl: res.data.photoUrl } : s);
+      toast.success("Photo updated");
+    } catch {
+      toast.error("Failed to upload photo");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   if (loading) {
     return (
@@ -154,8 +178,25 @@ export default function ChildProfilePage() {
         <div className="space-y-6">
           {/* Avatar card */}
           <div className="bg-card border border-border rounded-lg p-5 text-center">
-            <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-              <Baby className="h-10 w-10 text-primary" />
+            <div className="relative inline-block mb-3">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="relative h-20 w-20 rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-ring group"
+                title="Change photo"
+              >
+                {student.photoUrl ? (
+                  <img src={student.photoUrl} alt={student.firstName} className="h-full w-full object-cover rounded-full" />
+                ) : (
+                  <div className="h-full w-full rounded-full bg-primary/10 flex items-center justify-center">
+                    <Baby className="h-10 w-10 text-primary" />
+                  </div>
+                )}
+                <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  {uploading ? <Loader2 className="h-5 w-5 text-white animate-spin" /> : <Camera className="h-5 w-5 text-white" />}
+                </div>
+              </button>
+              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleAvatarChange} />
             </div>
             <p className="font-semibold text-foreground">{student.firstName} {student.lastName}</p>
             <p className="text-xs text-muted-foreground mt-1">{student.classrooms?.[0]?.name ?? "No classroom assigned"}</p>

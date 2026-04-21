@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { ListParentsDto, UpdateParentProfileDto, UpdateParentPreferencesDto } from './parents.dto';
 
 const DEFAULT_PREFERENCES = {
@@ -12,7 +13,10 @@ const DEFAULT_PREFERENCES = {
 
 @Injectable()
 export class ParentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private storageService: StorageService,
+  ) {}
 
   async findAll(filters: ListParentsDto) {
     const { search, page = 1, limit = 20 } = filters;
@@ -181,5 +185,15 @@ export class ParentsService {
       data: { preferences: merged },
     });
     return merged;
+  }
+
+  async uploadAvatar(userId: string, file: Express.Multer.File) {
+    const profile = await this.prisma.parentProfile.findUnique({ where: { userId } });
+    if (!profile) throw new NotFoundException('Parent profile not found');
+    const ext = file.mimetype.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg';
+    const key = `parents/${userId}/avatar.${ext}`;
+    const { url } = await this.storageService.uploadFile(file.buffer, key, file.mimetype);
+    await this.prisma.parentProfile.update({ where: { userId }, data: { photoUrl: url } });
+    return { photoUrl: url };
   }
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import api from "@/lib/api";
-import { User, Bell, Lock, Loader2, Save, Eye, EyeOff, CheckCircle } from "lucide-react";
+import { User, Bell, Lock, Loader2, Save, Eye, EyeOff, CheckCircle, Camera } from "lucide-react";
 import { toast } from "sonner";
 
 const TABS = [
@@ -19,6 +19,7 @@ interface Profile {
   city: string;
   state: string;
   zip: string;
+  photoUrl?: string;
 }
 
 interface Preferences {
@@ -44,6 +45,8 @@ function ProfileTab() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     api.get("/parents/me")
@@ -58,6 +61,7 @@ function ProfileTab() {
           city: p?.city ?? "",
           state: p?.state ?? "",
           zip: p?.zip ?? "",
+          photoUrl: p?.photoUrl ?? undefined,
         });
       })
       .catch(() => toast.error("Failed to load profile"))
@@ -77,18 +81,56 @@ function ProfileTab() {
     }
   };
 
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { toast.error("Please select an image file"); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5MB"); return; }
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await api.post("/parents/me/avatar", form, { headers: { "Content-Type": "multipart/form-data" } });
+      setProfile((p) => ({ ...p, photoUrl: res.data.photoUrl }));
+      toast.success("Photo updated");
+    } catch {
+      toast.error("Failed to upload photo");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   if (loading) return <div className="py-12 text-center text-muted-foreground"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>;
 
   return (
     <form onSubmit={handleSave} className="space-y-6">
-      {/* Avatar placeholder */}
+      {/* Avatar */}
       <div className="flex items-center gap-4">
-        <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xl flex-shrink-0">
-          {profile.firstName?.[0]?.toUpperCase() ?? "?"}{profile.lastName?.[0]?.toUpperCase() ?? ""}
+        <div className="relative flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="relative h-16 w-16 rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-ring group"
+            title="Change photo"
+          >
+            {profile.photoUrl ? (
+              <img src={profile.photoUrl} alt="Avatar" className="h-full w-full object-cover rounded-full" />
+            ) : (
+              <div className="h-full w-full rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xl">
+                {profile.firstName?.[0]?.toUpperCase() ?? "?"}{profile.lastName?.[0]?.toUpperCase() ?? ""}
+              </div>
+            )}
+            <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              {uploading ? <Loader2 className="h-5 w-5 text-white animate-spin" /> : <Camera className="h-5 w-5 text-white" />}
+            </div>
+          </button>
+          <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleAvatarChange} />
         </div>
         <div>
           <p className="font-semibold text-foreground">{profile.firstName} {profile.lastName}</p>
           <p className="text-sm text-muted-foreground">{email}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Click photo to change</p>
         </div>
       </div>
 
