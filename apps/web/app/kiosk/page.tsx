@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { CheckCircle, XCircle, QrCode, LogIn, LogOut, Users } from "lucide-react";
+import { CheckCircle, XCircle, QrCode, LogIn, LogOut, Users, Upload, Camera } from "lucide-react";
 import api from "@/lib/api";
 
 type Mode = "checkin" | "checkout";
@@ -28,11 +28,14 @@ export default function KioskPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [mounted, setMounted] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
+  const [cameraAvailable, setCameraAvailable] = useState<boolean | null>(null);
+  const [processing, setProcessing] = useState(false);
   const scannerRef = useRef<any>(null);
   const resetTimerRef = useRef<NodeJS.Timeout | null>(null);
   const scanningRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Mount flag + clock (client-only to avoid hydration mismatch)
+  // Mount flag + clock
   useEffect(() => {
     setMounted(true);
     setNow(new Date());
@@ -40,13 +43,27 @@ export default function KioskPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Check if camera is available (needs HTTPS or localhost)
+  useEffect(() => {
+    if (!mounted) return;
+    const isSecure = window.location.protocol === "https:" || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    if (!isSecure) {
+      setCameraAvailable(false);
+      return;
+    }
+    navigator.mediaDevices?.getUserMedia({ video: true })
+      .then((stream) => {
+        stream.getTracks().forEach(t => t.stop());
+        setCameraAvailable(true);
+      })
+      .catch(() => setCameraAvailable(false));
+  }, [mounted]);
+
   const stopScanner = useCallback(async () => {
     if (scannerRef.current) {
       try {
         const state = scannerRef.current.getState();
-        if (state === 2) { // SCANNING
-          await scannerRef.current.stop();
-        }
+        if (state === 2) await scannerRef.current.stop();
       } catch (e) { /* ignore */ }
       scannerRef.current = null;
     }
@@ -56,9 +73,26 @@ export default function KioskPage() {
     if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
     setScanResult(null);
     setErrorMsg("");
+    setProcessing(false);
     scanningRef.current = false;
     setStep("scan");
   }, []);
+
+  // Process QR token (shared between camera scan and file upload)
+  const processQrToken = useCallback(async (decodedText: string) => {
+    try {
+      setProcessing(true);
+      const endpoint = mode === "checkin" ? "/attendance/qr/check-in" : "/attendance/qr/check-out";
+      const { data } = await api.post(endpoint, { qrToken: decodedText });
+      setScanResult(data);
+      setStep("confirm");
+    } catch (err: any) {
+      setErrorMsg(err?.response?.data?.message || "Invalid QR code or scan failed.");
+      setStep("error");
+    } finally {
+      setProcessing(false);
+    }
+  }, [mode]);
 
   // Auto-reset after success/error
   useEffect(() => {
@@ -70,16 +104,14 @@ export default function KioskPage() {
     };
   }, [step, resetToScan]);
 
-  // QR Scanner — use Html5Qrcode directly for auto camera start
+  // Camera-based QR Scanner (only when camera is available)
   useEffect(() => {
-    if (step !== "scan" || !mounted) return;
+    if (step !== "scan" || !mounted || cameraAvailable !== true) return;
 
     let cancelled = false;
 
     const startScanner = async () => {
-      // Dynamic import to avoid SSR issues
       const { Html5Qrcode } = await import("html5-qrcode");
-
       if (cancelled) return;
 
       const html5QrCode = new Html5Qrcode("qr-reader");
@@ -90,43 +122,56 @@ export default function KioskPage() {
           { facingMode: "environment" },
           { fps: 10, qrbox: { width: 300, height: 300 }, aspectRatio: 1 },
           async (decodedText) => {
-            if (scanningRef.current) return; // prevent double-scan
+            if (scanningRef.current) return;
             scanningRef.current = true;
-
-            try {
-              await html5QrCode.stop();
-            } catch (e) { /* ignore */ }
+            try { await html5QrCode.stop(); } catch (e) { /* ignore */ }
             scannerRef.current = null;
-
-            try {
-              const endpoint = mode === "checkin" ? "/attendance/qr/check-in" : "/attendance/qr/check-out";
-              const { data } = await api.post(endpoint, { qrToken: decodedText });
-              setScanResult(data);
-              setStep("confirm");
-            } catch (err: any) {
-              setErrorMsg(err?.response?.data?.message || "Invalid QR code or scan failed.");
-              setStep("error");
-            }
+            processQrToken(decodedText);
           },
-          () => { /* scan miss — normal, ignore */ }
+          () => {}
         );
       } catch (err) {
-        console.error("Camera start failed:", err);
-        // Fallback: camera not available or permission denied
-        setErrorMsg("Camera access denied or not available. Please allow camera permissions and try again.");
-        setStep("error");
+        console.error("Camera failed:", err);
+        setCameraAvailable(false);
       }
     };
 
-    // Small delay to ensure DOM element exists
     const timer = setTimeout(startScanner, 200);
-
     return () => {
       cancelled = true;
       clearTimeout(timer);
       stopScanner();
     };
-  }, [step, mounted, mode, stopScanner]);
+  }, [step, mounted, cameraAvailable, mode, stopScanner, processQrToken]);
+
+  // Handle file upload for QR scanning
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setProcessing(true);
+      const { Html5Qrcode } = await import("html5-qrcode");
+      const html5QrCode = new Html5Qrcode("qr-file-reader");
+      const result = await html5QrCode.scanFile(file, true);
+      html5QrCode.clear();
+      await processQrToken(result);
+    } catch (err) {
+      setErrorMsg("Could not read QR code from image. Please try again with a clearer image.");
+      setStep("error");
+    } finally {
+      setProcessing(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  // Handle paste for QR token (manual entry)
+  const [manualToken, setManualToken] = useState("");
+  const handleManualSubmit = () => {
+    if (manualToken.trim()) {
+      processQrToken(manualToken.trim());
+    }
+  };
 
   const formatTime = (d: Date) =>
     d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -139,6 +184,9 @@ export default function KioskPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* Hidden div for file-based QR scanning */}
+      <div id="qr-file-reader" style={{ display: "none" }} />
+
       {/* Header */}
       <header className="flex items-center justify-between px-8 py-5 border-b border-slate-700">
         <div>
@@ -191,14 +239,80 @@ export default function KioskPage() {
                 Scan Your QR Code to {mode === "checkin" ? "Check In" : "Check Out"}
               </h2>
               <p className="text-slate-400 mt-2">
-                Open the parent app &rarr; My QR Code &rarr; show the code to the camera
+                Open the parent app &rarr; My QR Code &rarr; {cameraAvailable ? "show the code to the camera" : "screenshot it and upload below"}
               </p>
             </div>
-            <div
-              id="qr-reader"
-              className="w-full rounded-2xl overflow-hidden border-2 border-slate-600 bg-slate-800"
-              style={{ minHeight: 340 }}
-            />
+
+            {/* Camera scanner (when available) */}
+            {cameraAvailable === true && (
+              <div
+                id="qr-reader"
+                className="w-full rounded-2xl overflow-hidden border-2 border-slate-600 bg-slate-800"
+                style={{ minHeight: 340 }}
+              />
+            )}
+
+            {/* File upload fallback (when camera not available) */}
+            {cameraAvailable === false && (
+              <div className="w-full space-y-4">
+                <div className="bg-slate-800 border-2 border-dashed border-slate-600 rounded-2xl p-8 text-center">
+                  <Camera className="h-16 w-16 text-slate-500 mx-auto mb-4" />
+                  <p className="text-slate-400 mb-2 text-sm">
+                    Camera requires HTTPS. Use one of these options:
+                  </p>
+
+                  {/* Upload QR image */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="qr-upload"
+                  />
+                  <label
+                    htmlFor="qr-upload"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-lg font-semibold cursor-pointer transition-colors"
+                  >
+                    <Upload className="h-5 w-5" />
+                    {processing ? "Processing..." : "Upload QR Code Image"}
+                  </label>
+
+                  <p className="text-slate-500 text-xs mt-3">
+                    Take a photo or screenshot of the parent&apos;s QR code
+                  </p>
+                </div>
+
+                {/* Manual token paste */}
+                <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6">
+                  <p className="text-slate-400 text-sm mb-3 text-center">Or paste the QR token directly:</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={manualToken}
+                      onChange={(e) => setManualToken(e.target.value)}
+                      placeholder="Paste QR token here..."
+                      className="flex-1 bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      onClick={handleManualSubmit}
+                      disabled={!manualToken.trim() || processing}
+                      className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-xl font-semibold transition-colors"
+                    >
+                      {mode === "checkin" ? "Check In" : "Check Out"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Loading state */}
+            {cameraAvailable === null && (
+              <div className="w-full rounded-2xl border-2 border-slate-600 bg-slate-800 flex items-center justify-center" style={{ minHeight: 340 }}>
+                <p className="text-slate-400">Checking camera availability...</p>
+              </div>
+            )}
           </div>
         )}
 
