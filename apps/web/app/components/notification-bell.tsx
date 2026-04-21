@@ -54,6 +54,7 @@ export function NotificationBell({ viewAllHref = "/parent/notifications" }: { vi
 
   async function fetchUnreadCount() {
     try {
+      if (typeof window !== 'undefined' && !localStorage.getItem('accessToken')) return;
       const res = await api.get("/notifications/unread-count");
       setUnreadCount(res.data?.count ?? 0);
     } catch {}
