@@ -26,6 +26,7 @@ interface Stats {
   overdueCount: number;
   paidThisMonth: number;
   revenueByMonth: { month: string; revenue: number }[];
+  currency?: string;
 }
 
 interface PaymentStats {
@@ -105,7 +106,7 @@ export default function AdminPaymentsPage() {
   const fmt = (n?: number) =>
     new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD",
+      currency: invoiceStats?.currency ?? "USD",
       minimumFractionDigits: 0,
     }).format(n ?? 0);
 

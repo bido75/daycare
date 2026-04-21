@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Put, Param, Body, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -19,6 +19,18 @@ export class UsersController {
   @Roles('ADMIN', 'SUPER_ADMIN')
   findOne(@Param('id') id: string) {
     return this.usersService.findOne(id);
+  }
+
+  @Put(':id')
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  update(@Param('id') id: string, @Body() body: { email?: string; role?: string }) {
+    return this.usersService.update(id, body);
+  }
+
+  @Put(':id/reset-password')
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  resetPassword(@Param('id') id: string, @Body() body: { password: string }) {
+    return this.usersService.resetPassword(id, body.password);
   }
 
   @Patch(':id/toggle-active')

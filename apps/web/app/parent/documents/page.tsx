@@ -2,7 +2,10 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
-import { FolderOpen, Upload, Download, CheckCircle, XCircle, AlertTriangle, Loader2, X } from "lucide-react";
+import {
+  FolderOpen, Upload, Download, CheckCircle, XCircle,
+  AlertTriangle, Loader2, X, ClipboardList,
+} from "lucide-react";
 import { toast } from "sonner";
 
 interface Document {
@@ -15,7 +18,14 @@ interface Document {
   student: { id: string; firstName: string; lastName: string };
 }
 
-const DOC_TYPES = [
+interface DocRequirement {
+  type: string;
+  label: string;
+  required: boolean;
+  expiryRequired: boolean;
+}
+
+const FALLBACK_TYPES = [
   { value: "BIRTH_CERT", label: "Birth Certificate" },
   { value: "IMMUNIZATION", label: "Immunization Record" },
   { value: "MEDICAL", label: "Medical Form" },
@@ -24,7 +34,8 @@ const DOC_TYPES = [
   { value: "OTHER", label: "Other" },
 ];
 
-const typeLabel = (t: string) => DOC_TYPES.find((d) => d.value === t)?.label ?? t;
+const typeLabel = (t: string, reqs: DocRequirement[]) =>
+  reqs.find((r) => r.type === t)?.label ?? FALLBACK_TYPES.find((f) => f.value === t)?.label ?? t;
 
 function Badge({ verified, expired }: { verified: boolean; expired: boolean }) {
   if (expired) return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Expired</span>;
@@ -35,6 +46,7 @@ function Badge({ verified, expired }: { verified: boolean; expired: boolean }) {
 export default function ParentDocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [children, setChildren] = useState<{ id: string; firstName: string; lastName: string }[]>([]);
+  const [requirements, setRequirements] = useState<DocRequirement[]>([]);
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
   const [upStudentId, setUpStudentId] = useState("");
@@ -48,12 +60,15 @@ export default function ParentDocumentsPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [docsRes, childrenRes] = await Promise.all([
+      const [docsRes, childrenRes, reqRes] = await Promise.all([
         api.get("/documents", { params: { limit: "100" } }),
         api.get("/parents/me/students"),
+        api.get("/settings/document_requirements"),
       ]);
       setDocuments(docsRes.data?.data ?? []);
       setChildren(childrenRes.data ?? []);
+      const reqs: DocRequirement[] = reqRes.data?.data?.requiredDocuments ?? [];
+      setRequirements(reqs.length ? reqs : []);
     } catch {
       toast.error("Failed to load documents");
     } finally {
@@ -104,12 +119,30 @@ export default function ParentDocumentsPage() {
     return exp >= new Date() && exp <= soon;
   });
 
+  // Build per-child requirement checklist
+  const requiredTypes = requirements.filter((r) => r.required);
+
+  const childChecklist = children.map((child) => {
+    const childDocs = documents.filter((d) => d.student.id === child.id);
+    const missing = requiredTypes.filter((req) => {
+      const uploaded = childDocs.find((d) => d.type === req.type);
+      return !uploaded || isExpired(uploaded);
+    });
+    return { child, missing };
+  }).filter((c) => c.missing.length > 0);
+
+  // Upload type options: combine requirements + fallbacks, dedup
+  const uploadTypes = [
+    ...requirements.map((r) => ({ value: r.type, label: r.label })),
+    ...FALLBACK_TYPES.filter((f) => !requirements.find((r) => r.type === f.value)),
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Documents</h1>
-          <p className="text-gray-500 text-sm mt-1">Upload and manage your child's documents</p>
+          <p className="text-gray-500 text-sm mt-1">Upload and manage your child&apos;s documents</p>
         </div>
         <button onClick={() => setShowUpload(true)}
           className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
@@ -126,6 +159,37 @@ export default function ParentDocumentsPage() {
         </div>
       )}
 
+      {/* Required documents checklist */}
+      {childChecklist.length > 0 && (
+        <div className="bg-white border border-orange-200 rounded-xl p-4 space-y-3">
+          <div className="flex items-center gap-2 text-orange-700">
+            <ClipboardList className="w-4 h-4" />
+            <span className="text-sm font-semibold">Missing Required Documents</span>
+          </div>
+          {childChecklist.map(({ child, missing }) => (
+            <div key={child.id} className="pl-2">
+              <p className="text-sm font-medium text-gray-800 mb-1">{child.firstName} {child.lastName}</p>
+              <div className="flex flex-wrap gap-2">
+                {missing.map((req) => (
+                  <span key={req.type}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-red-50 text-red-700 border border-red-100">
+                    <XCircle className="w-3 h-3" /> {req.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* All requirements overview (if loaded) */}
+      {requiredTypes.length > 0 && childChecklist.length === 0 && children.length > 0 && (
+        <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+          <CheckCircle className="w-4 h-4 text-green-600 shrink-0" />
+          <p className="text-sm text-green-800 font-medium">All required documents are uploaded and current.</p>
+        </div>
+      )}
+
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         {loading ? (
           <div className="p-16 text-center text-gray-400">
@@ -135,7 +199,7 @@ export default function ParentDocumentsPage() {
           <div className="p-16 text-center">
             <FolderOpen className="w-10 h-10 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500 font-medium">No documents yet</p>
-            <p className="text-gray-400 text-sm mt-1">Upload your child's documents to get started</p>
+            <p className="text-gray-400 text-sm mt-1">Upload your child&apos;s documents to get started</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -158,7 +222,7 @@ export default function ParentDocumentsPage() {
                     <tr key={doc.id} className="border-b border-gray-50 hover:bg-gray-50">
                       <td className="px-5 py-3 font-medium text-gray-900">{doc.student.firstName} {doc.student.lastName}</td>
                       <td className="px-5 py-3 text-gray-700">{doc.name}</td>
-                      <td className="px-5 py-3 text-gray-500">{typeLabel(doc.type)}</td>
+                      <td className="px-5 py-3 text-gray-500">{typeLabel(doc.type, requirements)}</td>
                       <td className="px-5 py-3 text-gray-500">{new Date(doc.uploadedAt).toLocaleDateString()}</td>
                       <td className="px-5 py-3">
                         {doc.expiresAt
@@ -201,7 +265,7 @@ export default function ParentDocumentsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Document Type *</label>
                 <select value={upType} onChange={(e) => setUpType(e.target.value)} required
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
-                  {DOC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  {uploadTypes.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>
               <div>

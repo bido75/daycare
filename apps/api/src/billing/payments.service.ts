@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { SettingsService } from '../settings/settings.service';
 import { ReceiptsService } from './receipts.service';
 import {
   RecordManualPaymentDto,
@@ -26,6 +27,7 @@ export class PaymentsService {
     private prisma: PrismaService,
     private emailService: EmailService,
     private receiptsService: ReceiptsService,
+    private settingsService: SettingsService,
   ) {
     this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
       apiVersion: '2026-03-25.dahlia',
@@ -45,11 +47,14 @@ export class PaymentsService {
     const balanceDue = Number(invoice.totalAmount) - Number(invoice.paidAmount);
     if (balanceDue <= 0) throw new BadRequestException('No balance due on this invoice');
 
+    const feeStructureRes = await this.settingsService.get('fee_structure');
+    const currency = (feeStructureRes.data?.currency ?? 'USD').toLowerCase();
+
     const amountInCents = Math.round(balanceDue * 100);
 
     const paymentIntent = await this.stripe.paymentIntents.create({
       amount: amountInCents,
-      currency: 'usd',
+      currency,
       metadata: {
         invoiceId: invoice.id,
         invoiceNumber: invoice.invoiceNumber,

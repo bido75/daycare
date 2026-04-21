@@ -19,7 +19,7 @@ export class StorageService implements OnModuleInit {
     const endpoint = process.env.S3_ENDPOINT || process.env.AWS_S3_ENDPOINT || 'http://localhost:9000';
     const accessKeyId = process.env.S3_ACCESS_KEY || process.env.AWS_ACCESS_KEY_ID || 'minioadmin';
     const secretAccessKey = process.env.S3_SECRET_KEY || process.env.AWS_SECRET_ACCESS_KEY || 'minioadmin';
-    this.bucket = process.env.S3_BUCKET || process.env.AWS_S3_BUCKET || 'daycare-documents';
+    this.bucket = process.env.S3_BUCKET || process.env.AWS_S3_BUCKET || 'daycare-platform-uploads';
 
     this.s3 = new S3Client({
       endpoint,

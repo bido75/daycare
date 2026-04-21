@@ -5,7 +5,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import {
   Building2, Bell, DollarSign, Clock, FileCheck, Users,
-  Loader2, Plus, Trash2, Save,
+  Loader2, Plus, Trash2, Save, Pencil, KeyRound, X,
 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -666,10 +666,25 @@ function DocumentsTab() {
 
 // ─── Tab: User Management ───────────────────────────────────────────────────
 
+const ROLES = ["SUPER_ADMIN", "ADMIN", "STAFF", "PARENT"];
+
+interface EditUserForm { email: string; role: string; }
+interface ResetPasswordForm { password: string; confirm: string; }
+
 function UserManagementTab() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
+
+  // Edit modal
+  const [editTarget, setEditTarget] = useState<UserRow | null>(null);
+  const [editForm, setEditForm] = useState<EditUserForm>({ email: "", role: "" });
+  const [editSaving, setEditSaving] = useState(false);
+
+  // Reset password modal
+  const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
+  const [resetForm, setResetForm] = useState<ResetPasswordForm>({ password: "", confirm: "" });
+  const [resetSaving, setResetSaving] = useState(false);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -695,6 +710,60 @@ function UserManagementTab() {
       toast.error("Failed to update user");
     } finally {
       setToggling(null);
+    }
+  };
+
+  const openEdit = (user: UserRow) => {
+    setEditTarget(user);
+    setEditForm({ email: user.email, role: user.role });
+  };
+
+  const closeEdit = () => { setEditTarget(null); };
+
+  const submitEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTarget) return;
+    setEditSaving(true);
+    try {
+      const res = await api.put(`/users/${editTarget.id}`, editForm);
+      const updated = res.data.data;
+      setUsers((prev) => prev.map((u) => u.id === editTarget.id ? { ...u, ...updated } : u));
+      toast.success("User updated");
+      closeEdit();
+    } catch {
+      toast.error("Failed to update user");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const openReset = (user: UserRow) => {
+    setResetTarget(user);
+    setResetForm({ password: "", confirm: "" });
+  };
+
+  const closeReset = () => { setResetTarget(null); };
+
+  const submitReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetTarget) return;
+    if (resetForm.password !== resetForm.confirm) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    if (resetForm.password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    setResetSaving(true);
+    try {
+      await api.put(`/users/${resetTarget.id}/reset-password`, { password: resetForm.password });
+      toast.success("Password updated successfully");
+      closeReset();
+    } catch {
+      toast.error("Failed to reset password");
+    } finally {
+      setResetSaving(false);
     }
   };
 
@@ -743,16 +812,32 @@ function UserManagementTab() {
                   </span>
                 </td>
                 <td className="px-5 py-3 text-right">
-                  <button
-                    onClick={() => toggleActive(u)}
-                    disabled={toggling === u.id}
-                    className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${u.isActive
-                      ? "bg-red-50 text-red-600 hover:bg-red-100"
-                      : "bg-green-50 text-green-700 hover:bg-green-100"
-                    } disabled:opacity-50`}
-                  >
-                    {toggling === u.id ? <Loader2 className="w-3 h-3 animate-spin inline" /> : u.isActive ? "Deactivate" : "Activate"}
-                  </button>
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => openEdit(u)}
+                      className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-50 text-gray-700 hover:bg-gray-100 transition-colors"
+                      title="Edit user"
+                    >
+                      <Pencil className="w-3 h-3" /> Edit
+                    </button>
+                    <button
+                      onClick={() => openReset(u)}
+                      className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+                      title="Reset password"
+                    >
+                      <KeyRound className="w-3 h-3" /> Reset Password
+                    </button>
+                    <button
+                      onClick={() => toggleActive(u)}
+                      disabled={toggling === u.id}
+                      className={`inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${u.isActive
+                        ? "bg-red-50 text-red-600 hover:bg-red-100"
+                        : "bg-green-50 text-green-700 hover:bg-green-100"
+                      } disabled:opacity-50`}
+                    >
+                      {toggling === u.id ? <Loader2 className="w-3 h-3 animate-spin" /> : u.isActive ? "Deactivate" : "Activate"}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -762,6 +847,119 @@ function UserManagementTab() {
           <div className="text-center py-10 text-gray-400">No users found</div>
         )}
       </div>
+
+      {/* Edit User Modal */}
+      {editTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base font-semibold text-gray-900">Edit User</h2>
+              <button onClick={closeEdit} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={submitEdit} className="space-y-4">
+              <div>
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <Label>Role</Label>
+                <Select
+                  value={editForm.role}
+                  onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
+                >
+                  {ROLES.map((r) => (
+                    <option key={r} value={r}>{r.replace("_", " ")}</option>
+                  ))}
+                </Select>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeEdit}
+                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editSaving}
+                  className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+                >
+                  {editSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {editSaving ? "Saving…" : "Save"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {resetTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Reset Password</h2>
+                <p className="text-xs text-gray-500 mt-0.5">{getName(resetTarget)} · {resetTarget.email}</p>
+              </div>
+              <button onClick={closeReset} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={submitReset} className="space-y-4">
+              <div>
+                <Label>New Password</Label>
+                <Input
+                  type="password"
+                  value={resetForm.password}
+                  onChange={(e) => setResetForm((f) => ({ ...f, password: e.target.value }))}
+                  placeholder="Min. 6 characters"
+                  required
+                  minLength={6}
+                />
+              </div>
+              <div>
+                <Label>Confirm Password</Label>
+                <Input
+                  type="password"
+                  value={resetForm.confirm}
+                  onChange={(e) => setResetForm((f) => ({ ...f, confirm: e.target.value }))}
+                  placeholder="Re-enter password"
+                  required
+                />
+              </div>
+              {resetForm.confirm && resetForm.password !== resetForm.confirm && (
+                <p className="text-xs text-red-500">Passwords do not match</p>
+              )}
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeReset}
+                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={resetSaving || (!!resetForm.confirm && resetForm.password !== resetForm.confirm)}
+                  className="flex items-center gap-2 bg-amber-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-60 transition-colors"
+                >
+                  {resetSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+                  {resetSaving ? "Updating…" : "Set Password"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

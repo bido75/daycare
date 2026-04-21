@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { SettingsService } from '../settings/settings.service';
 import {
   CreateInvoiceDto,
   UpdateInvoiceDto,
@@ -18,7 +19,21 @@ export class InvoicesService {
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
+    private settingsService: SettingsService,
   ) {}
+
+  private async getFeeStructure() {
+    const res = await this.settingsService.get('fee_structure');
+    return res.data as {
+      currency: string;
+      taxRate: number;
+      lateFeeEnabled: boolean;
+      lateFeeAmount: number;
+      lateFeeGraceDays: number;
+      autoInvoiceEnabled: boolean;
+      invoiceDayOfMonth: number;
+    };
+  }
 
   async generateInvoiceNumber(): Promise<string> {
     const year = new Date().getFullYear();
@@ -41,11 +56,16 @@ export class InvoicesService {
     if (!parent) throw new NotFoundException('Parent profile not found');
 
     const invoiceNumber = await this.generateInvoiceNumber();
+    const feeStructure = await this.getFeeStructure();
 
     const subtotal = dto.items.reduce(
       (sum, item) => sum + item.unitPrice * item.quantity,
       0,
     );
+
+    const taxRate = feeStructure.taxRate ?? 0;
+    const taxAmount = Math.round(subtotal * (taxRate / 100) * 100) / 100;
+    const totalAmount = Math.round((subtotal + taxAmount) * 100) / 100;
 
     const invoice = await this.prisma.invoice.create({
       data: {
@@ -54,9 +74,9 @@ export class InvoicesService {
         status: 'PENDING',
         dueDate: new Date(dto.dueDate),
         subtotal,
-        taxAmount: 0,
+        taxAmount,
         discountAmount: 0,
-        totalAmount: subtotal,
+        totalAmount,
         paidAmount: 0,
         notes: dto.notes,
         items: {
@@ -230,26 +250,28 @@ export class InvoicesService {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-    const [outstanding, overdueCount, paidThisMonth, allPaidInvoices] = await Promise.all([
-      this.prisma.invoice.aggregate({
-        where: { status: { in: ['PENDING', 'PARTIALLY_PAID', 'OVERDUE'] } },
-        _sum: { totalAmount: true, paidAmount: true },
-      }),
-      this.prisma.invoice.count({
-        where: { status: 'OVERDUE' },
-      }),
-      this.prisma.invoice.aggregate({
-        where: {
-          status: 'PAID',
-          updatedAt: { gte: startOfMonth, lte: endOfMonth },
-        },
-        _sum: { totalAmount: true },
-      }),
-      this.prisma.payment.findMany({
-        where: { status: 'COMPLETED' },
-        select: { amount: true, paidAt: true },
-      }),
-    ]);
+    const [outstanding, overdueCount, paidThisMonth, allPaidInvoices, feeStructure] =
+      await Promise.all([
+        this.prisma.invoice.aggregate({
+          where: { status: { in: ['PENDING', 'PARTIALLY_PAID', 'OVERDUE'] } },
+          _sum: { totalAmount: true, paidAmount: true },
+        }),
+        this.prisma.invoice.count({
+          where: { status: 'OVERDUE' },
+        }),
+        this.prisma.invoice.aggregate({
+          where: {
+            status: 'PAID',
+            updatedAt: { gte: startOfMonth, lte: endOfMonth },
+          },
+          _sum: { totalAmount: true },
+        }),
+        this.prisma.payment.findMany({
+          where: { status: 'COMPLETED' },
+          select: { amount: true, paidAt: true },
+        }),
+        this.getFeeStructure(),
+      ]);
 
     // Build monthly revenue (last 6 months)
     const revenueByMonth: Record<string, number> = {};
@@ -279,6 +301,7 @@ export class InvoicesService {
         month,
         revenue,
       })),
+      currency: feeStructure.currency ?? 'USD',
     };
   }
 

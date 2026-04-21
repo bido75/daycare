@@ -25,6 +25,12 @@ export class ParentsController {
     return this.parentsService.getParentStats();
   }
 
+  @Get('me/students')
+  @Roles('PARENT')
+  getMyStudents(@CurrentUser() user: any) {
+    return this.parentsService.getMyStudents(user.userId);
+  }
+
   @Get(':id')
   @Roles('ADMIN', 'SUPER_ADMIN', 'PARENT')
   findOne(@Param('id') id: string, @CurrentUser() user: any) {

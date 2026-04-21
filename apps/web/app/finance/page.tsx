@@ -29,6 +29,7 @@ interface Stats {
   overdueCount: number;
   paidThisMonth: number;
   revenueByMonth: { month: string; revenue: number }[];
+  currency?: string;
 }
 
 interface PaymentStats {
@@ -37,15 +38,19 @@ interface PaymentStats {
   thisMonth: { amount: number; count: number };
 }
 
-const fmt = (n?: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0 }).format(n ?? 0);
-
 const PIE_COLORS = ["#4f46e5", "#e5e7eb"];
 
 export default function FinanceDashboard() {
   const [invoiceStats, setInvoiceStats] = useState<Stats | null>(null);
   const [paymentStats, setPaymentStats] = useState<PaymentStats | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const fmt = (n?: number) =>
+    new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: invoiceStats?.currency ?? "USD",
+      minimumFractionDigits: 0,
+    }).format(n ?? 0);
 
   const fetchData = useCallback(async () => {
     setLoading(true);

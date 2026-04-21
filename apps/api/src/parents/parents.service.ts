@@ -101,6 +101,25 @@ export class ParentsService {
     };
   }
 
+  async getMyStudents(userId: string) {
+    const parent = await this.prisma.parentProfile.findUnique({
+      where: { userId },
+      include: {
+        studentParents: {
+          include: {
+            student: {
+              select: { id: true, firstName: true, lastName: true, isActive: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!parent) return [];
+
+    return parent.studentParents.map((sp) => sp.student);
+  }
+
   async getParentStats() {
     const [total, active] = await Promise.all([
       this.prisma.user.count({ where: { parentProfile: { isNot: null } } }),

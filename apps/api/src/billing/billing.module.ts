@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { EmailModule } from '../email/email.module';
+import { SettingsModule } from '../settings/settings.module';
 
 import { FeeTypesService } from './fee-types.service';
 import { FeeTypesController } from './fee-types.controller';
@@ -14,7 +15,7 @@ import { ReceiptsService } from './receipts.service';
 import { ReceiptsController } from './receipts.controller';
 
 @Module({
-  imports: [EmailModule],
+  imports: [EmailModule, SettingsModule],
   controllers: [
     FeeTypesController,
     InvoicesController,
