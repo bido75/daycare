@@ -1,4 +1,8 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import { Baby, CalendarCheck, CreditCard, MessageCircle } from "lucide-react";
+import api from "@/lib/api";
 
 const metrics = [
   { label: "My Children", value: "–", icon: Baby, color: "text-pink-600 bg-pink-50" },
@@ -8,11 +12,19 @@ const metrics = [
 ];
 
 export default function ParentDashboard() {
+  const [academyName, setAcademyName] = useState("Creative Kids Academy");
+
+  useEffect(() => {
+    api.get("/settings/academy_profile").then((res) => {
+      if (res.data?.value?.name) setAcademyName(res.data.value.name);
+    }).catch(() => {});
+  }, []);
+
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">My Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">Welcome to your parent portal at Creative Kids Academy.</p>
+        <p className="text-muted-foreground text-sm mt-1">Welcome to your parent portal at {academyName}.</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {metrics.map((m) => {

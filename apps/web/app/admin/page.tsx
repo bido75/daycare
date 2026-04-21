@@ -1,4 +1,8 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import { Users, School, ClipboardList, CalendarCheck } from "lucide-react";
+import api from "@/lib/api";
 
 const metrics = [
   { label: "Total Students", value: "–", icon: Users, color: "text-blue-600 bg-blue-50" },
@@ -8,11 +12,19 @@ const metrics = [
 ];
 
 export default function AdminDashboard() {
+  const [academyName, setAcademyName] = useState("Creative Kids Academy");
+
+  useEffect(() => {
+    api.get("/settings/academy_profile").then((res) => {
+      if (res.data?.value?.name) setAcademyName(res.data.value.name);
+    }).catch(() => {});
+  }, []);
+
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">Welcome to the Creative Kids Academy admin portal.</p>
+        <p className="text-muted-foreground text-sm mt-1">Welcome to the {academyName} admin portal.</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {metrics.map((m) => {
