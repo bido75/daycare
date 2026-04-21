@@ -407,12 +407,15 @@ model IncidentLog {
   staff            StaffProfile @relation(fields: [staffId], references: [id])
   occurredAt       DateTime
   type             String
+  severity         String       @default("low")
   description      String
   actionTaken      String?
   parentNotified   Boolean      @default(false)
   parentNotifiedAt DateTime?
   witnessNames     String[]
   attachmentUrls   String[]
+  status           String       @default("OPEN")
+  resolvedAt       DateTime?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 }

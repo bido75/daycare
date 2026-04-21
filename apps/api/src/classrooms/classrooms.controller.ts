@@ -4,6 +4,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ClassroomsService } from './classrooms.service';
 import { CreateClassroomDto, UpdateClassroomDto, AssignStudentDto, AssignStaffDto, ListClassroomsDto } from './classroom.dto';
 
@@ -20,8 +21,8 @@ export class ClassroomsController {
 
   @Get()
   @Roles('ADMIN', 'SUPER_ADMIN', 'STAFF', 'PARENT')
-  findAll(@Query() query: ListClassroomsDto) {
-    return this.classroomsService.findAll(query);
+  findAll(@Query() query: ListClassroomsDto, @CurrentUser() user: any) {
+    return this.classroomsService.findAll(query, user);
   }
 
   @Get('stats')

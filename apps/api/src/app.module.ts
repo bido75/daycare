@@ -15,6 +15,7 @@ import { BillingModule } from './billing/billing.module';
 import { ClassroomsModule } from './classrooms/classrooms.module';
 import { DocumentsModule } from './documents/documents.module';
 import { EmailModule } from './email/email.module';
+import { IncidentsModule } from './incidents/incidents.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ParentsModule } from './parents/parents.module';
@@ -40,6 +41,7 @@ import { SettingsModule } from './settings/settings.module';
     ClassroomsModule,
     DocumentsModule,
     EmailModule,
+    IncidentsModule,
     MessagingModule,
     NotificationsModule,
     ParentsModule,

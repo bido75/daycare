@@ -16,13 +16,25 @@ export class ClassroomsService {
     });
   }
 
-  async findAll(filters: ListClassroomsDto = {}) {
+  async findAll(filters: ListClassroomsDto = {}, user?: any) {
     const { search, page = 1, limit = 50 } = filters;
     const skip = (Number(page) - 1) * Number(limit);
 
     const where: any = {};
     if (search) {
       where.name = { contains: search, mode: 'insensitive' };
+    }
+
+    // Staff members only see the classroom(s) they are assigned to lead
+    if (user?.role === 'STAFF') {
+      const staffProfile = await this.prisma.staffProfile.findUnique({
+        where: { userId: user.userId },
+      });
+      if (staffProfile) {
+        where.leadStaffId = staffProfile.id;
+      } else {
+        return { data: [], meta: { total: 0, page: Number(page), limit: Number(limit), totalPages: 0 } };
+      }
     }
 
     const [total, classrooms] = await Promise.all([

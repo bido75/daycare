@@ -56,6 +56,21 @@ export class DocumentsService {
       where.studentId = { in: studentIds };
     }
 
+    // Filter by classroom — look up students in that classroom
+    if (filters.classroomId) {
+      const classroomStudents = await this.prisma.student.findMany({
+        where: { classrooms: { some: { id: filters.classroomId } }, isActive: true },
+        select: { id: true },
+      });
+      const classroomStudentIds = classroomStudents.map((s) => s.id);
+      // Intersect with any existing studentId filter
+      if (where.studentId && where.studentId.in) {
+        where.studentId = { in: classroomStudentIds.filter((id) => where.studentId.in.includes(id)) };
+      } else if (!where.studentId) {
+        where.studentId = { in: classroomStudentIds };
+      }
+    }
+
     const page = filters.page ?? 1;
     const limit = filters.limit ?? 20;
     const skip = (page - 1) * limit;

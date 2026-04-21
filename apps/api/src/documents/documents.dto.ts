@@ -39,6 +39,10 @@ export class ListDocumentsDto {
   @IsOptional()
   studentId?: string;
 
+  @IsString()
+  @IsOptional()
+  classroomId?: string;
+
   @IsEnum(DocumentType)
   @IsOptional()
   type?: DocumentType;
