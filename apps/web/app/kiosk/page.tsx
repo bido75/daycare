@@ -266,7 +266,6 @@ export default function KioskPage() {
                     ref={fileInputRef}
                     type="file"
                     accept="image/*"
-                    capture="environment"
                     onChange={handleFileUpload}
                     className="hidden"
                     id="qr-upload"
