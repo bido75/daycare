@@ -106,7 +106,11 @@ export class StudentsService {
       throw new NotFoundException(`Student ${id} not found`);
     }
 
-    return student;
+    let photoUrl = student.photoUrl;
+    if (photoUrl && !photoUrl.startsWith('http')) {
+      photoUrl = await this.storageService.getSignedUrl(photoUrl, 86400);
+    }
+    return { ...student, photoUrl };
   }
 
   async update(id: string, dto: UpdateStudentDto) {

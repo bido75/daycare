@@ -120,7 +120,7 @@ export class ParentsService {
         studentParents: {
           include: {
             student: {
-              select: { id: true, firstName: true, lastName: true, isActive: true },
+              select: { id: true, firstName: true, lastName: true, isActive: true, photoUrl: true },
             },
           },
         },
@@ -129,7 +129,14 @@ export class ParentsService {
 
     if (!parent) return [];
 
-    return parent.studentParents.map((sp) => sp.student);
+    const students = parent.studentParents.map((sp) => sp.student);
+    return Promise.all(students.map(async (s) => {
+      let photoUrl = s.photoUrl;
+      if (photoUrl && !photoUrl.startsWith('http')) {
+        photoUrl = await this.storageService.getSignedUrl(photoUrl, 86400);
+      }
+      return { ...s, photoUrl };
+    }));
   }
 
   async getParentStats() {

@@ -2,12 +2,14 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRegistrationDto, UpdateRegistrationStatusDto, ListRegistrationsDto } from './registration.dto';
 import { EmailService } from '../email/email.service';
+import { StorageService } from '../storage/storage.service';
 
 @Injectable()
 export class RegistrationsService {
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
+    private storageService: StorageService,
   ) {}
 
   async create(userId: string, dto: CreateRegistrationDto) {
@@ -155,8 +157,19 @@ export class RegistrationsService {
       }),
     ]);
 
+    // Resolve student photo URLs
+    const resolved = await Promise.all(
+      registrations.map(async (reg) => {
+        if (reg.student?.photoUrl && !reg.student.photoUrl.startsWith('http')) {
+          const signedUrl = await this.storageService.getSignedUrl(reg.student.photoUrl, 86400);
+          return { ...reg, student: { ...reg.student, photoUrl: signedUrl } };
+        }
+        return reg;
+      }),
+    );
+
     return {
-      data: registrations,
+      data: resolved,
       meta: {
         total,
         page: Number(page),
