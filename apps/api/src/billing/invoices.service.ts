@@ -61,7 +61,7 @@ export class InvoicesService {
         notes: dto.notes,
         items: {
           create: dto.items.map((item) => ({
-            feeTypeId: item.feeTypeId,
+            feeTypeId: item.feeTypeId || null,
             studentId: item.studentId,
             description: item.description,
             quantity: item.quantity,
