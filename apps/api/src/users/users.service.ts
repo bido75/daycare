@@ -32,4 +32,9 @@ export class UsersService {
     const user = await this.prisma.user.update({ where: { id }, data: { isActive: false } });
     return { success: true, data: { id: user.id, isActive: user.isActive }, message: 'User deactivated' };
   }
+
+  async setActive(id: string, isActive: boolean) {
+    const user = await this.prisma.user.update({ where: { id }, data: { isActive } });
+    return { success: true, data: { id: user.id, isActive: user.isActive }, message: `User ${isActive ? 'activated' : 'deactivated'}` };
+  }
 }

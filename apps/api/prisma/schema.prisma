@@ -432,3 +432,10 @@ model ActivityLog {
   @@index([entity, entityId])
   @@index([createdAt])
 }
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+}
