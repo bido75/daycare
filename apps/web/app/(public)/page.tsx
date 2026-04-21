@@ -22,6 +22,13 @@ import {
 interface AcademyProfile {
   name?: string;
   logo?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
 }
 
 export default function HomePage() {
@@ -413,15 +420,15 @@ export default function HomePage() {
             <ul className="space-y-3 text-sm text-background/80">
               <li className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 shrink-0" />
-                123 Sunshine Lane, Springfield, IL 62701
+                {[academy.address, academy.city, academy.state, academy.zipCode].filter(Boolean).join(", ") || "123 Sunshine Lane, Springfield, IL 62701"}
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="w-4 h-4 shrink-0" />
-                (555) 123-4567
+                {academy.phone || "(555) 123-4567"}
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="w-4 h-4 shrink-0" />
-                hello@creativekidsacademy.com
+                {academy.email || "hello@creativekidsacademy.com"}
               </li>
             </ul>
           </div>
