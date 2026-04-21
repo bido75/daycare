@@ -1,11 +1,15 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { CreateStaffDto, UpdateStaffDto, ListStaffDto } from './staff.dto';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class StaffService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private storageService: StorageService,
+  ) {}
 
   async create(dto: CreateStaffDto) {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
@@ -98,15 +102,27 @@ export class StaffService {
       ? users.filter((u) => u.staffProfile?.classrooms.some((c) => c.id === classroomId))
       : users;
 
+    const data = await Promise.all(
+      filtered.map(async (u) => {
+        const staffProfile = u.staffProfile
+          ? {
+              ...u.staffProfile,
+              photoUrl: await this.storageService.resolvePhotoUrl(u.staffProfile.photoUrl),
+            }
+          : u.staffProfile;
+        return {
+          id: u.id,
+          email: u.email,
+          role: u.role,
+          isActive: u.isActive,
+          createdAt: u.createdAt,
+          staffProfile,
+        };
+      }),
+    );
+
     return {
-      data: filtered.map((u) => ({
-        id: u.id,
-        email: u.email,
-        role: u.role,
-        isActive: u.isActive,
-        createdAt: u.createdAt,
-        staffProfile: u.staffProfile,
-      })),
+      data,
       meta: {
         total: classroomId ? filtered.length : total,
         page: Number(page),
@@ -132,13 +148,18 @@ export class StaffService {
       throw new NotFoundException(`Staff member ${id} not found`);
     }
 
+    const staffProfile = {
+      ...user.staffProfile,
+      photoUrl: await this.storageService.resolvePhotoUrl(user.staffProfile.photoUrl),
+    };
+
     return {
       id: user.id,
       email: user.email,
       role: user.role,
       isActive: user.isActive,
       createdAt: user.createdAt,
-      staffProfile: user.staffProfile,
+      staffProfile,
     };
   }
 

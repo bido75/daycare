@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import {
   CreateDailyReportDto,
   UpdateDailyReportDto,
@@ -8,13 +9,27 @@ import {
 
 @Injectable()
 export class DailyReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storageService: StorageService,
+  ) {}
+
+  private async resolveReportPhotoUrl(report: any): Promise<any> {
+    if (!report?.student) return report;
+    return {
+      ...report,
+      student: {
+        ...report.student,
+        photoUrl: await this.storageService.resolvePhotoUrl(report.student.photoUrl),
+      },
+    };
+  }
 
   async create(dto: CreateDailyReportDto, staffId: string) {
     const date = new Date(dto.date);
     date.setHours(0, 0, 0, 0);
 
-    return this.prisma.dailyReport.create({
+    const report = await this.prisma.dailyReport.create({
       data: {
         studentId: dto.studentId,
         staffId,
@@ -29,13 +44,14 @@ export class DailyReportsService {
       },
       include: { student: true, staff: true },
     });
+    return this.resolveReportPhotoUrl(report);
   }
 
   async update(id: string, dto: UpdateDailyReportDto) {
     const existing = await this.prisma.dailyReport.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Daily report not found');
 
-    return this.prisma.dailyReport.update({
+    const report = await this.prisma.dailyReport.update({
       where: { id },
       data: {
         mood: dto.mood,
@@ -48,6 +64,7 @@ export class DailyReportsService {
       },
       include: { student: true, staff: true },
     });
+    return this.resolveReportPhotoUrl(report);
   }
 
   async findAll(filters: ListDailyReportsDto, userRole: string, userId: string) {
@@ -81,7 +98,7 @@ export class DailyReportsService {
       }
     }
 
-    const [total, data] = await Promise.all([
+    const [total, rawData] = await Promise.all([
       this.prisma.dailyReport.count({ where }),
       this.prisma.dailyReport.findMany({
         where,
@@ -91,6 +108,8 @@ export class DailyReportsService {
         orderBy: { date: 'desc' },
       }),
     ]);
+
+    const data = await Promise.all(rawData.map((r) => this.resolveReportPhotoUrl(r)));
 
     return { data, total, page: Number(page), limit: Number(limit) };
   }
@@ -113,15 +132,17 @@ export class DailyReportsService {
       }
     }
 
-    return report;
+    return this.resolveReportPhotoUrl(report);
   }
 
   async findByStudentAndDate(studentId: string, date: string) {
     const d = new Date(date);
     d.setHours(0, 0, 0, 0);
-    return this.prisma.dailyReport.findUnique({
+    const report = await this.prisma.dailyReport.findUnique({
       where: { studentId_date: { studentId, date: d } },
       include: { student: true, staff: true },
     });
+    if (!report) return null;
+    return this.resolveReportPhotoUrl(report);
   }
 }

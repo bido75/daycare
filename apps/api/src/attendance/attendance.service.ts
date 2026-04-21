@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import {
   CheckInDto,
   CheckOutDto,
@@ -22,7 +23,19 @@ export class AttendanceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly storageService: StorageService,
   ) {}
+
+  private async resolveAttendancePhotoUrl(record: any): Promise<any> {
+    if (!record?.student) return record;
+    return {
+      ...record,
+      student: {
+        ...record.student,
+        photoUrl: await this.storageService.resolvePhotoUrl(record.student.photoUrl),
+      },
+    };
+  }
 
   // ─── QR Token ────────────────────────────────────────────────────────────────
 
@@ -59,14 +72,15 @@ export class AttendanceService {
       if (existing.checkInTime) {
         throw new BadRequestException('Student is already checked in today');
       }
-      return this.prisma.attendance.update({
+      const record = await this.prisma.attendance.update({
         where: { id: existing.id },
         data: { checkInTime: new Date(), status: 'PRESENT', staffId, notes: dto.notes },
         include: { student: true, classroom: true },
       });
+      return this.resolveAttendancePhotoUrl(record);
     }
 
-    return this.prisma.attendance.create({
+    const record = await this.prisma.attendance.create({
       data: {
         studentId: dto.studentId,
         classroomId: dto.classroomId,
@@ -78,6 +92,7 @@ export class AttendanceService {
       },
       include: { student: true, classroom: true },
     });
+    return this.resolveAttendancePhotoUrl(record);
   }
 
   async checkOut(dto: CheckOutDto, staffId?: string) {
@@ -85,11 +100,12 @@ export class AttendanceService {
     if (!record) throw new NotFoundException('Attendance record not found');
     if (record.checkOutTime) throw new BadRequestException('Student is already checked out');
 
-    return this.prisma.attendance.update({
+    const updated = await this.prisma.attendance.update({
       where: { id: dto.attendanceId },
       data: { checkOutTime: new Date(), staffId: staffId ?? record.staffId, notes: dto.notes ?? record.notes },
       include: { student: true, classroom: true },
     });
+    return this.resolveAttendancePhotoUrl(updated);
   }
 
   // ─── QR Check In/Out ─────────────────────────────────────────────────────
@@ -139,10 +155,17 @@ export class AttendanceService {
             include: { student: true, classroom: true },
           });
 
-      results.push(record);
+      results.push(await this.resolveAttendancePhotoUrl(record));
     }
 
-    return { parentId, students: parent.studentParents.map((sp) => sp.student), checkedIn: results };
+    const resolvedStudents = await Promise.all(
+      parent.studentParents.map(async (sp) => ({
+        ...sp.student,
+        photoUrl: await this.storageService.resolvePhotoUrl(sp.student.photoUrl),
+      })),
+    );
+
+    return { parentId, students: resolvedStudents, checkedIn: results };
   }
 
   async qrCheckOut(dto: QrCheckOutDto) {
@@ -170,10 +193,17 @@ export class AttendanceService {
         data: { checkOutTime: new Date() },
         include: { student: true, classroom: true },
       });
-      results.push(updated);
+      results.push(await this.resolveAttendancePhotoUrl(updated));
     }
 
-    return { parentId, students: parent.studentParents.map((sp) => sp.student), checkedOut: results };
+    const resolvedStudents = await Promise.all(
+      parent.studentParents.map(async (sp) => ({
+        ...sp.student,
+        photoUrl: await this.storageService.resolvePhotoUrl(sp.student.photoUrl),
+      })),
+    );
+
+    return { parentId, students: resolvedStudents, checkedOut: results };
   }
 
   // ─── QR token for a student's parent ────────────────────────────────────
@@ -205,14 +235,15 @@ export class AttendanceService {
     });
 
     if (existing) {
-      return this.prisma.attendance.update({
+      const updated = await this.prisma.attendance.update({
         where: { id: existing.id },
         data: { status: 'ABSENT', staffId, notes: dto.notes, checkInTime: null, checkOutTime: null },
         include: { student: true, classroom: true },
       });
+      return this.resolveAttendancePhotoUrl(updated);
     }
 
-    return this.prisma.attendance.create({
+    const created = await this.prisma.attendance.create({
       data: {
         studentId: dto.studentId,
         classroomId: dto.classroomId,
@@ -223,6 +254,7 @@ export class AttendanceService {
       },
       include: { student: true, classroom: true },
     });
+    return this.resolveAttendancePhotoUrl(created);
   }
 
   // ─── Bulk Check In ────────────────────────────────────────────────────────
@@ -274,7 +306,7 @@ export class AttendanceService {
       where.studentId = { in: childIds };
     }
 
-    const [total, data] = await Promise.all([
+    const [total, rawData] = await Promise.all([
       this.prisma.attendance.count({ where }),
       this.prisma.attendance.findMany({
         where,
@@ -285,6 +317,8 @@ export class AttendanceService {
       }),
     ]);
 
+    const data = await Promise.all(rawData.map((r) => this.resolveAttendancePhotoUrl(r)));
+
     return { data, total, page: Number(page), limit: Number(limit) };
   }
 
@@ -294,11 +328,12 @@ export class AttendanceService {
     const where: any = { date: d };
     if (classroomId) where.classroomId = classroomId;
 
-    return this.prisma.attendance.findMany({
+    const records = await this.prisma.attendance.findMany({
       where,
       include: { student: true, classroom: true, staff: true },
       orderBy: { checkInTime: 'asc' },
     });
+    return Promise.all(records.map((r) => this.resolveAttendancePhotoUrl(r)));
   }
 
   // ─── Stats ────────────────────────────────────────────────────────────────

@@ -71,6 +71,12 @@ export class StorageService implements OnModuleInit {
     return getSignedUrl(this.s3, command, { expiresIn });
   }
 
+  async resolvePhotoUrl(photoUrl: string | null | undefined): Promise<string | null> {
+    if (!photoUrl) return null;
+    if (photoUrl.startsWith('http')) return photoUrl;
+    return this.getSignedUrl(photoUrl, 86400);
+  }
+
   async deleteFile(key: string): Promise<void> {
     await this.s3.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }

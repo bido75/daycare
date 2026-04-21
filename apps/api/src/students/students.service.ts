@@ -65,8 +65,15 @@ export class StudentsService {
       }),
     ]);
 
+    const resolved = await Promise.all(
+      students.map(async (s) => ({
+        ...s,
+        photoUrl: await this.storageService.resolvePhotoUrl(s.photoUrl),
+      })),
+    );
+
     return {
-      data: students,
+      data: resolved,
       meta: {
         total,
         page: Number(page),
