@@ -12,9 +12,8 @@ import api from "@/lib/api";
 import { Download, X, CreditCard, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""
-);
+const stripeKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+const stripePromise = stripeKey ? loadStripe(stripeKey) : null;
 
 interface Invoice {
   id: string;
