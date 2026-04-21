@@ -13,6 +13,7 @@ import {
   Bell,
   FolderOpen,
   Settings,
+  QrCode,
 } from "lucide-react";
 
 const navItems = [
@@ -20,6 +21,7 @@ const navItems = [
   { label: "My Children", href: "/parent/children", icon: Baby },
   { label: "Registration", href: "/parent/registration", icon: ClipboardList },
   { label: "Attendance", href: "/parent/attendance", icon: CalendarCheck },
+  { label: "My QR Code", href: "/parent/qr-code", icon: QrCode },
   { label: "Payments", href: "/parent/payments", icon: CreditCard },
   { label: "Messages", href: "/parent/messages", icon: MessageCircle },
   { label: "Daily Reports", href: "/parent/daily-reports", icon: FileText },
