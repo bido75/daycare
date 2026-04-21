@@ -101,7 +101,7 @@ export class AttendanceService {
       where: { id: parentId },
       include: {
         studentParents: {
-          include: { student: true },
+          include: { student: { include: { classrooms: { take: 1 } } } },
         },
       },
     });
@@ -130,7 +130,7 @@ export class AttendanceService {
         : await this.prisma.attendance.create({
             data: {
               studentId: student.id,
-              classroomId: dto.classroomId,
+              classroomId: student.classrooms?.[0]?.id ?? dto.classroomId ?? '',
               date: today,
               checkInTime: new Date(),
               status: 'PRESENT',

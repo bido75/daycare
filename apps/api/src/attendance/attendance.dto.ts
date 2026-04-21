@@ -16,7 +16,7 @@ export class CheckOutDto {
 
 export class QrCheckInDto {
   @IsString() qrToken: string;
-  @IsString() classroomId: string;
+  @IsOptional() @IsString() classroomId?: string;
 }
 
 export class QrCheckOutDto {

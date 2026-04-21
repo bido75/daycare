@@ -74,9 +74,8 @@ export default function KioskPage() {
 
         try {
           const endpoint = mode === "checkin" ? "/attendance/qr/check-in" : "/attendance/qr/check-out";
-          // For check-in we need a classroomId — use a default or let the backend infer
           const payload = mode === "checkin"
-            ? { qrToken: decodedText, classroomId: "default" }
+            ? { qrToken: decodedText }
             : { qrToken: decodedText };
 
           const { data } = await api.post(endpoint, payload);
