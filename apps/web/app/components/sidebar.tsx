@@ -41,8 +41,9 @@ export function Sidebar({ navItems, portalTitle }: SidebarProps) {
   useEffect(() => {
     const storedUser = getStoredUser();
     setUser(storedUser);
-    api.get("/settings/academy_profile").then((res) => {
-      if (res.data?.value) setAcademy(res.data.value);
+    api.get("/settings/public/academy_profile").then((res) => {
+      const val = res.data?.data || res.data?.value;
+      if (val) setAcademy(val);
     }).catch(() => {});
     if (storedUser?.role === 'PARENT') {
       api.get("/parents/me").then((res) => {

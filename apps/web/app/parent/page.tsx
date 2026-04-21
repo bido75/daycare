@@ -17,17 +17,21 @@ export default function ParentDashboard() {
 
   useEffect(() => {
     // Fetch academy name
-    api.get("/settings/academy_profile").then((res) => {
-      const val = res.data?.value || res.data?.data;
+    api.get("/settings/public/academy_profile").then((res) => {
+      const val = res.data?.data || res.data?.value;
       if (val?.name) setAcademyName(val.name);
     }).catch(() => {});
 
     // Fetch dashboard data
     async function loadDashboard() {
       try {
+          const now = new Date();
+          const dateFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+          const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+          const dateTo = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
         const [regRes, attendanceRes, invoicesRes, messagesRes] = await Promise.allSettled([
           api.get("/registrations"),
-          api.get("/attendance", { params: { month: new Date().toISOString().slice(0, 7) } }),
+          api.get("/attendance", { params: { dateFrom, dateTo } }),
           api.get("/billing/invoices", { params: { limit: 50 } }),
           api.get("/messages/threads", { params: { limit: 50 } }),
         ]);
