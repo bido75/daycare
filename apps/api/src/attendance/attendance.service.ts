@@ -198,8 +198,7 @@ export class AttendanceService {
   // ─── Mark Absent ──────────────────────────────────────────────────────────
 
   async markAbsent(dto: MarkAbsentDto, staffId: string) {
-    const date = new Date(dto.date);
-    date.setHours(0, 0, 0, 0);
+    const date = this.parseLocalDate(dto.date);
 
     const existing = await this.prisma.attendance.findUnique({
       where: { studentId_date: { studentId: dto.studentId, date } },
@@ -245,6 +244,12 @@ export class AttendanceService {
 
   // ─── Find All (role-filtered) ─────────────────────────────────────────────
 
+  private parseLocalDate(dateStr: string): Date {
+    // Parse "YYYY-MM-DD" as local midnight (not UTC)
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d, 0, 0, 0, 0);
+  }
+
   async findAll(filters: ListAttendanceDto, userRole: string, userId: string) {
     const { date, classroomId, studentId, status, page = 1, limit = 50 } = filters;
     const skip = (Number(page) - 1) * Number(limit);
@@ -252,9 +257,7 @@ export class AttendanceService {
     const where: any = {};
 
     if (date) {
-      const d = new Date(date);
-      d.setHours(0, 0, 0, 0);
-      where.date = d;
+      where.date = this.parseLocalDate(date);
     }
     if (classroomId) where.classroomId = classroomId;
     if (studentId) where.studentId = studentId;
@@ -286,8 +289,7 @@ export class AttendanceService {
   }
 
   async findByDate(date: string, classroomId?: string) {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
+    const d = this.parseLocalDate(date);
 
     const where: any = { date: d };
     if (classroomId) where.classroomId = classroomId;
