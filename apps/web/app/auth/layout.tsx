@@ -13,11 +13,11 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   const [academy, setAcademy] = useState<AcademyProfile>({});
 
   useEffect(() => {
-    const baseUrl = `http://${typeof window !== "undefined" ? window.location.hostname : "localhost"}:4000`;
+    const baseUrl = `http://${typeof window !== "undefined" ? window.location.hostname : "localhost"}:4000/api`;
     fetch(`${baseUrl}/settings/public/academy_profile`)
       .then((res) => res.json())
       .then((data) => {
-        if (data?.data?.value) setAcademy(data.data.value);
+        if (data?.data) setAcademy(data.data);
       })
       .catch(() => {});
   }, []);
