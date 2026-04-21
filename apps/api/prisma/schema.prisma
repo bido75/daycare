@@ -1,5 +1,5 @@
 // Creative Kids Academy — Prisma Schema
-// PostgreSQL · 24 models
+// PostgreSQL · 26 models
 
 generator client {
   provider = "prisma-client-js"
@@ -99,6 +99,7 @@ model Student {
   dailyReports      DailyReport[]
   incidentLogs      IncidentLog[]
   invoiceItems      InvoiceItem[]
+  smsLogs           SmsLog[]
 }
 
 model StudentParent {
@@ -232,12 +233,34 @@ model SmsLog {
   to           String
   from         String
   body         String
-  status       String
+  status       String   @default("created")
   twilioSid    String?
+  providerId        String?
+  provider          SmsProvider? @relation(fields: [providerId], references: [id])
+  providerMessageId String?
+  sentById          String?
+  studentId         String?
+  student           Student?     @relation(fields: [studentId], references: [id])
   errorCode    String?
   errorMessage String?
+  attempt      Int      @default(1)
+  context      String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model SmsProvider {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  displayName String
+  isActive    Boolean  @default(false)
+  isDefault   Boolean  @default(false)
+  config      Json
+  contexts    String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  smsLogs     SmsLog[]
 }
 
 model FeeType {

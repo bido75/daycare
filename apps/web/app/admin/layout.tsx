@@ -16,6 +16,7 @@ import {
   Settings,
   UserCog,
   Smartphone,
+  Puzzle,
 } from "lucide-react";
 
 const navItems = [
@@ -31,6 +32,7 @@ const navItems = [
   { label: "Attendance", href: "/admin/attendance", icon: CalendarCheck },
   { label: "Documents", href: "/admin/documents", icon: FileText },
   { label: "Reports", href: "/admin/reports", icon: BarChart2 },
+  { label: "Integrations", href: "/admin/integrations", icon: Puzzle },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 

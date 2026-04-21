@@ -68,6 +68,49 @@ async function main() {
     }
   }
 
+  // Seed SMS providers
+  const twilioSid = process.env.TWILIO_ACCOUNT_SID ?? '';
+  const DEV_PLACEHOLDERS = ['ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX', 'test', 'placeholder', ''];
+  const twilioIsActive = twilioSid.length > 10 && !DEV_PLACEHOLDERS.some((p) => twilioSid.includes(p));
+
+  const existingTwilio = await prisma.smsProvider.findUnique({ where: { name: 'twilio' } });
+  if (!existingTwilio) {
+    await prisma.smsProvider.create({
+      data: {
+        name: 'twilio',
+        displayName: 'Twilio',
+        isActive: twilioIsActive,
+        isDefault: twilioIsActive,
+        config: {
+          accountSid: process.env.TWILIO_ACCOUNT_SID ?? 'ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+          authToken: process.env.TWILIO_AUTH_TOKEN ?? 'placeholder',
+          fromNumber: process.env.TWILIO_FROM_NUMBER ?? '',
+        },
+        contexts: ['attendance', 'emergency', 'general'],
+      },
+    });
+    console.log(`Created Twilio SMS provider (active: ${twilioIsActive})`);
+  }
+
+  const existingClickSend = await prisma.smsProvider.findUnique({ where: { name: 'clicksend' } });
+  if (!existingClickSend) {
+    await prisma.smsProvider.create({
+      data: {
+        name: 'clicksend',
+        displayName: 'ClickSend',
+        isActive: false,
+        isDefault: false,
+        config: {
+          username: 'your-clicksend-email@example.com',
+          apiKey: 'your-clicksend-api-key',
+          fromNumber: '',
+        },
+        contexts: ['marketing'],
+      },
+    });
+    console.log('Created ClickSend SMS provider (inactive placeholder)');
+  }
+
   console.log('Seeding complete.');
 }
 
