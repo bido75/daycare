@@ -9,9 +9,10 @@ export default function StaffDashboard() {
   const [classroom, setClassroom] = useState<any>(null);
   const [studentCount, setStudentCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const user = getStoredUser();
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
+    setUser(getStoredUser());
     async function load() {
       try {
         // Get classrooms — staff see only their classroom
