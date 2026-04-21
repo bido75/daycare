@@ -151,10 +151,15 @@ export class ParentsService {
       include: { parentProfile: true },
     });
     if (!user || !user.parentProfile) throw new NotFoundException('Parent profile not found');
+    const profile = user.parentProfile;
+    let photoUrl = profile.photoUrl;
+    if (photoUrl && !photoUrl.startsWith('http')) {
+      photoUrl = await this.storageService.getSignedUrl(photoUrl, 86400);
+    }
     return {
       id: user.id,
       email: user.email,
-      parentProfile: user.parentProfile,
+      parentProfile: { ...profile, photoUrl },
     };
   }
 
@@ -192,8 +197,9 @@ export class ParentsService {
     if (!profile) throw new NotFoundException('Parent profile not found');
     const ext = file.mimetype.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg';
     const key = `parents/${userId}/avatar.${ext}`;
-    const { url } = await this.storageService.uploadFile(file.buffer, key, file.mimetype);
-    await this.prisma.parentProfile.update({ where: { userId }, data: { photoUrl: url } });
-    return { photoUrl: url };
+    await this.storageService.uploadFile(file.buffer, key, file.mimetype);
+    const signedUrl = await this.storageService.getSignedUrl(key, 86400 * 7);
+    await this.prisma.parentProfile.update({ where: { userId }, data: { photoUrl: key } });
+    return { photoUrl: signedUrl };
   }
 }

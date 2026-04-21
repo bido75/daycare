@@ -72,7 +72,8 @@ function ProfileTab() {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.put("/parents/me", profile);
+      const { photoUrl, ...profileData } = profile;
+      await api.put("/parents/me", profileData);
       toast.success("Profile updated successfully");
     } catch {
       toast.error("Failed to save profile");

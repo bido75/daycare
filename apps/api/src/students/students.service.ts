@@ -203,8 +203,9 @@ export class StudentsService {
     }
     const ext = file.mimetype.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg';
     const key = `students/${studentId}/avatar.${ext}`;
-    const { url } = await this.storageService.uploadFile(file.buffer, key, file.mimetype);
-    await this.prisma.student.update({ where: { id: studentId }, data: { photoUrl: url } });
-    return { photoUrl: url };
+    await this.storageService.uploadFile(file.buffer, key, file.mimetype);
+    const signedUrl = await this.storageService.getSignedUrl(key, 86400 * 7);
+    await this.prisma.student.update({ where: { id: studentId }, data: { photoUrl: key } });
+    return { photoUrl: signedUrl };
   }
 }
