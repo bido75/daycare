@@ -28,8 +28,8 @@ export default function ParentDashboard() {
         const [regRes, attendanceRes, invoicesRes, messagesRes] = await Promise.allSettled([
           api.get("/registrations"),
           api.get("/attendance", { params: { month: new Date().toISOString().slice(0, 7) } }),
-          api.get("/invoices"),
-          api.get("/messages"),
+          api.get("/billing/invoices", { params: { limit: 50 } }),
+          api.get("/messages/threads", { params: { limit: 50 } }),
         ]);
 
         // Children count
@@ -54,17 +54,17 @@ export default function ParentDashboard() {
           const invoices = invoicesRes.value.data?.data || invoicesRes.value.data || [];
           if (Array.isArray(invoices)) {
             const total = invoices
-              .filter((inv: any) => inv.status === "PENDING" || inv.status === "OVERDUE" || inv.status === "UNPAID")
-              .reduce((sum: number, inv: any) => sum + (Number(inv.totalAmount) || Number(inv.amount) || 0), 0);
+              .filter((inv: any) => inv.status !== "PAID" && inv.status !== "CANCELLED")
+              .reduce((sum: number, inv: any) => sum + (Number(inv.balanceDue) || Number(inv.totalAmount) || 0), 0);
             setOutstandingBalance(total > 0 ? `$${total.toFixed(2)}` : "$0.00");
           }
         }
 
         // Unread messages
         if (messagesRes.status === "fulfilled") {
-          const msgs = messagesRes.value.data?.data || messagesRes.value.data || [];
-          if (Array.isArray(msgs)) {
-            const unread = msgs.filter((m: any) => !m.read && !m.isRead).length;
+          const threads = messagesRes.value.data?.data || messagesRes.value.data || [];
+          if (Array.isArray(threads)) {
+            const unread = threads.filter((t: any) => t.unreadCount > 0 || !t.read).length;
             setUnreadMessages(unread);
           }
         }
