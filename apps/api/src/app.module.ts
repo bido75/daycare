@@ -23,6 +23,7 @@ import { ReportsModule } from './reports/reports.module';
 import { SmsModule } from './sms/sms.module';
 import { StaffModule } from './staff/staff.module';
 import { StudentsModule } from './students/students.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { StudentsModule } from './students/students.module';
     SmsModule,
     StaffModule,
     StudentsModule,
+    StorageModule,
   ],
   controllers: [AppController],
   providers: [
