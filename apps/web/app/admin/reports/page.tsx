@@ -220,8 +220,8 @@ function AttendanceTab({ data }: { data: any }) {
         <div className="bg-white border border-gray-200 rounded-xl p-6">
           <h3 className="text-base font-semibold text-gray-900 mb-4">Most Absences</h3>
           <div className="space-y-2">
-            {(data.mostAbsent ?? []).map((r: any) => (
-              <div key={r.student.id} className="flex items-center justify-between text-sm">
+            {(data.mostAbsent ?? []).map((r: any, i: number) => (
+              <div key={r.student?.id ?? i} className="flex items-center justify-between text-sm">
                 <span className="text-gray-700">{r.student.firstName} {r.student.lastName}</span>
                 <span className="font-semibold text-red-600">{r.count} absent</span>
               </div>
@@ -232,8 +232,8 @@ function AttendanceTab({ data }: { data: any }) {
         <div className="bg-white border border-gray-200 rounded-xl p-6">
           <h3 className="text-base font-semibold text-gray-900 mb-4">By Classroom</h3>
           <div className="space-y-2">
-            {(data.byClassroom ?? []).map((c: any) => (
-              <div key={c.classroomId} className="flex items-center gap-2 text-sm">
+            {(data.byClassroom ?? []).map((c: any, i: number) => (
+              <div key={c.classroomId ?? i} className="flex items-center gap-2 text-sm">
                 <span className="text-gray-700 w-28 shrink-0">{c.name}</span>
                 <div className="flex-1 bg-gray-100 rounded-full h-2">
                   <div className="bg-indigo-500 h-2 rounded-full" style={{ width: `${c.rate}%` }} />
