@@ -25,6 +25,8 @@ export class QrCheckOutDto {
 
 export class ListAttendanceDto {
   @IsOptional() @IsDateString() date?: string;
+  @IsOptional() @IsDateString() dateFrom?: string;
+  @IsOptional() @IsDateString() dateTo?: string;
   @IsOptional() @IsString() classroomId?: string;
   @IsOptional() @IsString() studentId?: string;
   @IsOptional() @IsString() status?: string;

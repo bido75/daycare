@@ -283,13 +283,17 @@ export class AttendanceService {
   }
 
   async findAll(filters: ListAttendanceDto, userRole: string, userId: string) {
-    const { date, classroomId, studentId, status, page = 1, limit = 50 } = filters;
+    const { date, dateFrom, dateTo, classroomId, studentId, status, page = 1, limit = 50 } = filters;
     const skip = (Number(page) - 1) * Number(limit);
 
     const where: any = {};
 
     if (date) {
       where.date = this.parseLocalDate(date);
+    } else if (dateFrom || dateTo) {
+      where.date = {};
+      if (dateFrom) where.date.gte = this.parseLocalDate(dateFrom);
+      if (dateTo) where.date.lte = this.parseLocalDate(dateTo);
     }
     if (classroomId) where.classroomId = classroomId;
     if (studentId) where.studentId = studentId;
