@@ -7,6 +7,11 @@ import api from "@/lib/api";
 type Mode = "checkin" | "checkout";
 type Step = "scan" | "confirm" | "success" | "error";
 
+interface AcademyProfile {
+  name?: string;
+  logo?: string;
+}
+
 interface Student {
   id: string;
   firstName: string;
@@ -30,6 +35,7 @@ export default function KioskPage() {
   const [now, setNow] = useState<Date | null>(null);
   const [cameraAvailable, setCameraAvailable] = useState<boolean | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [academy, setAcademy] = useState<AcademyProfile>({});
   const scannerRef = useRef<any>(null);
   const resetTimerRef = useRef<NodeJS.Timeout | null>(null);
   const scanningRef = useRef(false);
@@ -41,6 +47,19 @@ export default function KioskPage() {
     setNow(new Date());
     const interval = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Fetch academy profile from public endpoint
+  useEffect(() => {
+    const baseUrl = typeof window !== "undefined"
+      ? `http://${window.location.hostname}:4000/api`
+      : "http://localhost:4000/api";
+    fetch(`${baseUrl}/settings/public/academy_profile`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (res?.data) setAcademy(res.data);
+      })
+      .catch(() => {});
   }, []);
 
   // Check if camera is available (needs HTTPS or localhost)
@@ -189,9 +208,24 @@ export default function KioskPage() {
 
       {/* Header */}
       <header className="flex items-center justify-between px-8 py-5 border-b border-slate-700">
-        <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Creative Kids Academy</h1>
-          <p className="text-slate-400 text-sm mt-0.5">Parent Check-In / Check-Out Kiosk</p>
+        <div className="flex items-center gap-3">
+          {academy.logo ? (
+            <img
+              src={academy.logo}
+              alt="Academy logo"
+              className="h-12 w-12 object-cover rounded-full"
+            />
+          ) : (
+            <div className="h-12 w-12 rounded-full bg-slate-700 flex items-center justify-center">
+              <Users className="h-6 w-6 text-slate-400" />
+            </div>
+          )}
+          <div>
+            <h1 className="text-3xl font-bold text-white tracking-tight">
+              {academy.name || "Creative Kids Academy"}
+            </h1>
+            <p className="text-slate-400 text-sm mt-0.5">Parent Check-In / Check-Out Kiosk</p>
+          </div>
         </div>
         <div className="text-right" suppressHydrationWarning>
           <div className="text-4xl font-mono font-bold text-white" suppressHydrationWarning>
@@ -396,7 +430,7 @@ export default function KioskPage() {
 
       {/* Footer */}
       <footer className="text-center py-4 text-slate-600 text-sm border-t border-slate-800">
-        Creative Kids Academy - Kiosk Mode - {mode === "checkin" ? "Check In" : "Check Out"}
+        {academy.name || "Creative Kids Academy"} - Kiosk Mode - {mode === "checkin" ? "Check In" : "Check Out"}
       </footer>
     </div>
   );

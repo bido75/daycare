@@ -1,3 +1,6 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Shield,
@@ -16,17 +19,46 @@ import {
   ArrowRight,
 } from "lucide-react";
 
+interface AcademyProfile {
+  name?: string;
+  logo?: string;
+}
+
 export default function HomePage() {
+  const [academy, setAcademy] = useState<AcademyProfile>({});
+
+  useEffect(() => {
+    const baseUrl = typeof window !== "undefined"
+      ? `http://${window.location.hostname}:4000/api`
+      : "http://localhost:4000/api";
+    fetch(`${baseUrl}/settings/public/academy_profile`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (res?.data) setAcademy(res.data);
+      })
+      .catch(() => {});
+  }, []);
+
+  const academyName = academy.name || "Creative Kids Academy";
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navbar */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-              <Heart className="w-4 h-4 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-lg text-foreground">Creative Kids Academy</span>
+            {academy.logo ? (
+              <img
+                src={academy.logo}
+                alt="Academy logo"
+                className="w-8 h-8 object-cover rounded-full"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+                <Heart className="w-4 h-4 text-primary-foreground" />
+              </div>
+            )}
+            <span className="font-bold text-lg text-foreground">{academyName}</span>
           </div>
           <nav className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
             <a href="#about" className="hover:text-foreground transition-colors">About</a>
@@ -359,10 +391,18 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto grid md:grid-cols-4 gap-8">
           <div className="md:col-span-2">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                <Heart className="w-4 h-4 text-primary-foreground" />
-              </div>
-              <span className="font-bold text-lg">Creative Kids Academy</span>
+              {academy.logo ? (
+                <img
+                  src={academy.logo}
+                  alt="Academy logo"
+                  className="w-8 h-8 object-cover rounded-full"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+                  <Heart className="w-4 h-4 text-primary-foreground" />
+                </div>
+              )}
+              <span className="font-bold text-lg">{academyName}</span>
             </div>
             <p className="text-background/70 text-sm mb-4 max-w-xs">
               Nurturing young minds since 2010. A safe, joyful place where children grow, learn, and thrive.
@@ -398,7 +438,7 @@ export default function HomePage() {
           </div>
         </div>
         <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-background/10 text-center text-xs text-background/40">
-          © {new Date().getFullYear()} Creative Kids Academy. All rights reserved.
+          © {new Date().getFullYear()} {academyName}. All rights reserved.
         </div>
       </footer>
     </div>

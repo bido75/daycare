@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { Menu, X, LogOut, Heart } from "lucide-react";
 import { logout, getStoredUser } from "@/lib/auth";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import api from "@/lib/api";
 
 export interface NavItem {
   label: string;
@@ -19,14 +21,23 @@ interface SidebarProps {
   portalTitle: string;
 }
 
+interface AcademyProfile {
+  name?: string;
+  logo?: string;
+}
+
 export function Sidebar({ navItems, portalTitle }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<ReturnType<typeof getStoredUser>>(null);
+  const [academy, setAcademy] = useState<AcademyProfile>({});
 
   useEffect(() => {
     setUser(getStoredUser());
+    api.get("/settings/academy_profile").then((res) => {
+      if (res.data?.value) setAcademy(res.data.value);
+    }).catch(() => {});
   }, []);
 
   async function handleLogout() {
@@ -67,11 +78,15 @@ export function Sidebar({ navItems, portalTitle }: SidebarProps) {
     <div className="flex h-full flex-col bg-card border-r border-border">
       {/* Logo */}
       <div className="flex items-center gap-2 px-4 py-4 border-b border-border">
-        <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center shrink-0">
-          <Heart className="w-3.5 h-3.5 text-primary-foreground" />
-        </div>
+        {academy.logo ? (
+          <img src={academy.logo} alt="Logo" className="w-7 h-7 rounded-full object-cover shrink-0" />
+        ) : (
+          <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center shrink-0">
+            <Heart className="w-3.5 h-3.5 text-primary-foreground" />
+          </div>
+        )}
         <div>
-          <div className="text-xs font-bold text-foreground leading-tight">Creative Kids</div>
+          <div className="text-xs font-bold text-foreground leading-tight">{academy.name || "Creative Kids"}</div>
           <div className="text-[10px] text-muted-foreground leading-tight">{portalTitle}</div>
         </div>
       </div>
@@ -109,9 +124,13 @@ export function Sidebar({ navItems, portalTitle }: SidebarProps) {
       {/* Mobile top bar */}
       <div className="md:hidden flex items-center justify-between px-4 py-3 bg-card border-b border-border sticky top-0 z-40">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center">
-            <Heart className="w-3.5 h-3.5 text-primary-foreground" />
-          </div>
+          {academy.logo ? (
+            <img src={academy.logo} alt="Logo" className="w-7 h-7 rounded-full object-cover" />
+          ) : (
+            <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center">
+              <Heart className="w-3.5 h-3.5 text-primary-foreground" />
+            </div>
+          )}
           <span className="text-sm font-bold text-foreground">{portalTitle}</span>
         </div>
         <button

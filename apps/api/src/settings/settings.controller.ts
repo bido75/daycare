@@ -4,6 +4,17 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { SettingsService } from './settings.service';
 
+// Public endpoint – no auth required (used by landing page & kiosk)
+@Controller('settings/public')
+export class PublicSettingsController {
+  constructor(private readonly settingsService: SettingsService) {}
+
+  @Get('academy_profile')
+  getAcademyProfile() {
+    return this.settingsService.get('academy_profile');
+  }
+}
+
 @Controller('settings')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class SettingsController {
