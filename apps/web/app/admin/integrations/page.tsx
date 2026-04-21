@@ -103,6 +103,9 @@ interface EmailProviderFormData {
     user: string;
     pass: string;
     encryption: string;
+    sesAccessKeyId: string;
+    sesSecretAccessKey: string;
+    sesRegion: string;
   };
 }
 
@@ -120,6 +123,9 @@ const defaultEmailForm: EmailProviderFormData = {
     user: "",
     pass: "",
     encryption: "tls",
+    sesAccessKeyId: "",
+    sesSecretAccessKey: "",
+    sesRegion: "us-east-1",
   },
 };
 
@@ -482,6 +488,9 @@ function EmailSection() {
         apiKey: p.config.apiKey ?? "", fromEmail: p.config.fromEmail ?? "", fromName: p.config.fromName ?? "Creative Kids Academy",
         host: p.config.host ?? "", port: String(p.config.port ?? "587"), user: p.config.user ?? "",
         pass: p.config.pass ?? "", encryption: p.config.encryption ?? "tls",
+        sesAccessKeyId: (p.config as any).accessKeyId ?? "",
+        sesSecretAccessKey: (p.config as any).secretAccessKey ?? "",
+        sesRegion: (p.config as any).region ?? "us-east-1",
       },
     });
     setEditingId(p.id); setShowForm(true);
@@ -500,10 +509,14 @@ function EmailSection() {
     setSaving(true);
     try {
       const baseConfig = { fromEmail: form.config.fromEmail, fromName: form.config.fromName };
-      const config =
-        form.name === "smtp"
-          ? { ...baseConfig, host: form.config.host, port: Number(form.config.port), user: form.config.user, pass: form.config.pass, encryption: form.config.encryption }
-          : { ...baseConfig, apiKey: form.config.apiKey };
+      let config: Record<string, any>;
+      if (form.name === "smtp") {
+        config = { ...baseConfig, host: form.config.host, port: Number(form.config.port), user: form.config.user, pass: form.config.pass, encryption: form.config.encryption };
+      } else if (form.name === "ses") {
+        config = { ...baseConfig, accessKeyId: form.config.sesAccessKeyId, secretAccessKey: form.config.sesSecretAccessKey, region: form.config.sesRegion };
+      } else {
+        config = { ...baseConfig, apiKey: form.config.apiKey };
+      }
 
       const payload = { name: form.name, displayName: form.displayName, isActive: form.isActive, contexts: form.contexts, config };
       if (editingId) { await api.patch(`/integrations/email/${editingId}`, payload); toast.success("Email provider updated"); }
@@ -635,8 +648,8 @@ function EmailSection() {
                       className="w-full px-3 py-2 text-sm border border-border rounded-md bg-muted/50 focus:outline-none focus:ring-1 focus:ring-primary">
                       <option value="resend">Resend</option>
                       <option value="smtp">Custom SMTP</option>
-                      <option value="sendgrid">SendGrid (coming soon)</option>
-                      <option value="ses">Amazon SES (coming soon)</option>
+                      <option value="sendgrid">SendGrid</option>
+                      <option value="ses">Amazon SES</option>
                     </select>
                   </div>
                 )}
@@ -694,6 +707,44 @@ function EmailSection() {
                         <option value="none">None</option>
                       </select>
                     </div>
+                  </>
+                )}
+
+                {/* SendGrid fields */}
+                {form.name === "sendgrid" && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">API Key</label>
+                    <input type="password" value={form.config.apiKey} onChange={(e) => setForm((f) => ({ ...f, config: { ...f.config, apiKey: e.target.value } }))}
+                      placeholder={editingId ? "Leave blank to keep current" : "SG.xxxxxxxxxxxx"}
+                      className="w-full px-3 py-2 text-sm border border-border rounded-md bg-muted/50 focus:outline-none focus:ring-1 focus:ring-primary font-mono" />
+                  </div>
+                )}
+
+                {/* Amazon SES fields */}
+                {form.name === "ses" && (
+                  <>
+                    <div><label className="block text-sm font-medium mb-1">Access Key ID</label>
+                      <input value={form.config.sesAccessKeyId ?? ""} onChange={(e) => setForm((f) => ({ ...f, config: { ...f.config, sesAccessKeyId: e.target.value } }))}
+                        placeholder={editingId ? "Leave blank to keep current" : "AKIAIOSFODNN7EXAMPLE"}
+                        className="w-full px-3 py-2 text-sm border border-border rounded-md bg-muted/50 focus:outline-none focus:ring-1 focus:ring-primary font-mono" /></div>
+                    <div><label className="block text-sm font-medium mb-1">Secret Access Key</label>
+                      <input type="password" value={form.config.sesSecretAccessKey ?? ""} onChange={(e) => setForm((f) => ({ ...f, config: { ...f.config, sesSecretAccessKey: e.target.value } }))}
+                        placeholder={editingId ? "Leave blank to keep current" : "Secret access key"}
+                        className="w-full px-3 py-2 text-sm border border-border rounded-md bg-muted/50 focus:outline-none focus:ring-1 focus:ring-primary" /></div>
+                    <div><label className="block text-sm font-medium mb-1">AWS Region</label>
+                      <select value={form.config.sesRegion ?? "us-east-1"} onChange={(e) => setForm((f) => ({ ...f, config: { ...f.config, sesRegion: e.target.value } }))}
+                        className="w-full px-3 py-2 text-sm border border-border rounded-md bg-muted/50 focus:outline-none focus:ring-1 focus:ring-primary">
+                        <option value="us-east-1">us-east-1 (N. Virginia)</option>
+                        <option value="us-east-2">us-east-2 (Ohio)</option>
+                        <option value="us-west-1">us-west-1 (N. California)</option>
+                        <option value="us-west-2">us-west-2 (Oregon)</option>
+                        <option value="eu-west-1">eu-west-1 (Ireland)</option>
+                        <option value="eu-west-2">eu-west-2 (London)</option>
+                        <option value="eu-central-1">eu-central-1 (Frankfurt)</option>
+                        <option value="ap-southeast-1">ap-southeast-1 (Singapore)</option>
+                        <option value="ap-southeast-2">ap-southeast-2 (Sydney)</option>
+                        <option value="ap-northeast-1">ap-northeast-1 (Tokyo)</option>
+                      </select></div>
                   </>
                 )}
 
@@ -808,6 +859,14 @@ export default function IntegrationsPage() {
           <div>
             <p className="font-medium text-foreground mb-1">Custom SMTP (Email)</p>
             <p>Use your own mail server (Postal, Mailcow, Office 365). Full control over delivery.</p>
+          </div>
+          <div>
+            <p className="font-medium text-foreground mb-1">SendGrid (Email)</p>
+            <p>Twilio SendGrid. 100 emails/day free. Trusted at scale with advanced analytics and templates.</p>
+          </div>
+          <div>
+            <p className="font-medium text-foreground mb-1">Amazon SES (Email)</p>
+            <p>AWS Simple Email Service. $0.10/1,000 emails. Ideal for AWS-hosted apps with high volume.</p>
           </div>
         </div>
       </div>

@@ -3,6 +3,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { EmailProviderInterface } from './email-provider.interface';
 import { ResendEmailProvider } from './resend.provider';
 import { SmtpEmailProvider } from './smtp.provider';
+import { SendGridEmailProvider } from './sendgrid.provider';
+import { SesEmailProvider } from './ses.provider';
 
 @Injectable()
 export class EmailProviderFactory {
@@ -12,7 +14,13 @@ export class EmailProviderFactory {
     if (name === 'smtp') {
       return new SmtpEmailProvider(config);
     }
-    // Default: resend (also covers 'resend', 'sendgrid-future', etc.)
+    if (name === 'sendgrid') {
+      return new SendGridEmailProvider(config);
+    }
+    if (name === 'ses') {
+      return new SesEmailProvider(config);
+    }
+    // Default: resend
     return new ResendEmailProvider(config);
   }
 
