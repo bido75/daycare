@@ -31,8 +31,19 @@ interface AcademyProfile {
   website?: string;
 }
 
+interface DaySchedule {
+  open: string;
+  close: string;
+  closed: boolean;
+}
+
+interface OperatingHours {
+  weekdays?: Record<string, DaySchedule>;
+}
+
 export default function HomePage() {
   const [academy, setAcademy] = useState<AcademyProfile>({});
+  const [hours, setHours] = useState<OperatingHours>({});
 
   useEffect(() => {
     const baseUrl = typeof window !== "undefined"
@@ -44,9 +55,56 @@ export default function HomePage() {
         if (res?.data) setAcademy(res.data);
       })
       .catch(() => {});
+    fetch(`${baseUrl}/settings/public/operating_hours`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (res?.data) setHours(res.data);
+      })
+      .catch(() => {});
   }, []);
 
   const academyName = academy.name || "Creative Kids Academy";
+
+  // Build hours display from operating_hours settings
+  const formatTime = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    const ampm = h >= 12 ? "PM" : "AM";
+    const hr = h % 12 || 12;
+    return `${hr}:${m.toString().padStart(2, "0")} ${ampm}`;
+  };
+
+  const buildHoursDisplay = () => {
+    const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+    const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const wd = hours.weekdays;
+    if (!wd) return null;
+
+    // Group consecutive days with same schedule
+    const lines: string[] = [];
+    let i = 0;
+    while (i < days.length) {
+      const d = wd[days[i]];
+      if (!d || d.closed) {
+        // Find consecutive closed days
+        let j = i;
+        while (j < days.length && wd[days[j]]?.closed !== false) j++;
+        if (j - i === 1) lines.push(`${labels[i]}: Closed`);
+        else lines.push(`${labels[i]}–${labels[j - 1]}: Closed`);
+        i = j;
+      } else {
+        // Find consecutive days with same hours
+        let j = i + 1;
+        while (j < days.length && wd[days[j]] && !wd[days[j]].closed && wd[days[j]].open === d.open && wd[days[j]].close === d.close) j++;
+        const timeStr = `${formatTime(d.open)} – ${formatTime(d.close)}`;
+        if (j - i === 1) lines.push(`${labels[i]}: ${timeStr}`);
+        else lines.push(`${labels[i]}–${labels[j - 1]}: ${timeStr}`);
+        i = j;
+      }
+    }
+    return lines;
+  };
+
+  const hoursLines = buildHoursDisplay();
 
   return (
     <div className="min-h-screen bg-background">
@@ -435,12 +493,21 @@ export default function HomePage() {
           <div>
             <h4 className="font-semibold mb-4 text-sm uppercase tracking-wide text-background/60">Hours</h4>
             <ul className="space-y-2 text-sm text-background/80">
-              <li className="flex items-center gap-2">
-                <Clock className="w-4 h-4 shrink-0" />
-                Mon–Fri: 7:00 AM – 6:00 PM
-              </li>
-              <li className="pl-6 text-background/60">Saturday: Closed</li>
-              <li className="pl-6 text-background/60">Sunday: Closed</li>
+              {hoursLines ? hoursLines.map((line, i) => (
+                <li key={i} className={i === 0 ? "flex items-center gap-2" : "pl-6 text-background/60"}>
+                  {i === 0 && <Clock className="w-4 h-4 shrink-0" />}
+                  {line}
+                </li>
+              )) : (
+                <>
+                  <li className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 shrink-0" />
+                    Mon–Fri: 7:00 AM – 6:00 PM
+                  </li>
+                  <li className="pl-6 text-background/60">Saturday: Closed</li>
+                  <li className="pl-6 text-background/60">Sunday: Closed</li>
+                </>
+              )}
             </ul>
           </div>
         </div>

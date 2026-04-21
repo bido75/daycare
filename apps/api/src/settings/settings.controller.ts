@@ -13,6 +13,11 @@ export class PublicSettingsController {
   getAcademyProfile() {
     return this.settingsService.get('academy_profile');
   }
+
+  @Get('operating_hours')
+  getOperatingHours() {
+    return this.settingsService.get('operating_hours');
+  }
 }
 
 @Controller('settings')
