@@ -17,6 +17,7 @@ import {
 } from './dto/auth.dto';
 import { Response, Request } from 'express';
 import * as crypto from 'crypto';
+import { EmailService } from '../email/email.service';
 
 const SALT_ROUNDS = 12;
 const REFRESH_TOKEN_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
@@ -29,6 +30,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private emailService: EmailService,
   ) {}
 
   private success(data: any, message = 'OK') {
@@ -86,6 +88,11 @@ export class AuthService {
     await this.prisma.user.update({ where: { id: user.id }, data: { refreshToken: refreshHash } });
 
     this.setRefreshCookie(res, refreshToken);
+
+    // Send welcome email (fire-and-forget)
+    this.emailService
+      .sendTemplatedEmail(dto.email, 'welcomeEmail', { userName: dto.firstName }, 'auth')
+      .catch(() => {});
 
     return this.success(
       {
@@ -183,8 +190,16 @@ export class AuthService {
     if (user) {
       const token = crypto.randomBytes(32).toString('hex');
       resetTokens.set(token, { email: dto.email, expiresAt: new Date(Date.now() + 60 * 60 * 1000) });
-      // TODO: send email — for now log it
-      console.log(`[Auth] Password reset token for ${dto.email}: ${token}`);
+      const resetUrl = `${process.env.APP_URL ?? 'http://localhost:3000'}/reset-password?token=${token}`;
+
+      const profile = await this.prisma.parentProfile.findUnique({ where: { userId: user.id } })
+        ?? await this.prisma.staffProfile.findUnique({ where: { userId: user.id } });
+      const userName = (profile as any)?.firstName ?? dto.email;
+
+      // Send password reset email (fire-and-forget)
+      this.emailService
+        .sendTemplatedEmail(dto.email, 'passwordReset', { resetUrl, userName }, 'auth')
+        .catch(() => {});
     }
     return this.success(null, 'If that email exists, a reset link has been sent.');
   }

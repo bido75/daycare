@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ListNotificationsDto } from './notifications.dto';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class NotificationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+  ) {}
 
   async create(
     userId: string,
@@ -12,8 +16,9 @@ export class NotificationsService {
     title: string,
     message: string,
     link?: string,
+    sendEmail?: boolean,
   ) {
-    return this.prisma.notification.create({
+    const notification = await this.prisma.notification.create({
       data: {
         userId,
         type,
@@ -22,6 +27,27 @@ export class NotificationsService {
         metadata: link ? { link } : undefined,
       },
     });
+
+    if (sendEmail) {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (user) {
+        this.emailService
+          .sendTemplatedEmail(
+            user.email,
+            'notification',
+            {
+              title,
+              message,
+              actionUrl: link ? `${process.env.APP_URL ?? 'http://localhost:3000'}${link}` : undefined,
+              actionText: 'View Details',
+            },
+            'notifications',
+          )
+          .catch(() => {});
+      }
+    }
+
+    return notification;
   }
 
   async findAll(userId: string, filters: ListNotificationsDto) {
@@ -76,6 +102,7 @@ export class NotificationsService {
       'Registration Update',
       `${childName}'s registration has been ${status.toLowerCase()}.`,
       '/parent/registration',
+      true, // send email for registration status changes
     );
   }
 
@@ -86,6 +113,7 @@ export class NotificationsService {
       'New Message',
       `You have a new message from ${senderName}.`,
       `/parent/messages`,
+      false,
     );
   }
 
@@ -96,6 +124,7 @@ export class NotificationsService {
       'Payment Due',
       `A payment of $${amount} is due on ${dueDate}.`,
       '/parent/payments',
+      true, // send email for billing notifications
     );
   }
 
@@ -106,6 +135,7 @@ export class NotificationsService {
       'Attendance Alert',
       `${childName} was marked ${type} today.`,
       '/parent/attendance',
+      false,
     );
   }
 }

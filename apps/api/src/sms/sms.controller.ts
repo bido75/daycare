@@ -16,13 +16,13 @@ export class SmsController {
   @Post('send')
   @Roles('ADMIN', 'SUPER_ADMIN')
   sendSms(@CurrentUser() user: any, @Body() dto: SendSmsDto) {
-    return this.smsService.sendSms(dto.to, dto.message, user.id, dto.studentId);
+    return this.smsService.sendSms(dto.to, dto.message, user.userId, dto.studentId);
   }
 
   @Post('bulk')
   @Roles('ADMIN', 'SUPER_ADMIN')
   sendBulk(@CurrentUser() user: any, @Body() dto: BulkSmsDto) {
-    return this.smsService.sendBulkSms(dto.recipients, dto.message, user.id);
+    return this.smsService.sendBulkSms(dto.recipients, dto.message, user.userId);
   }
 
   @Get('logs')

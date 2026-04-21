@@ -16,25 +16,25 @@ export class MessagingController {
   @Post('threads')
   @Roles('ADMIN', 'SUPER_ADMIN', 'STAFF', 'PARENT')
   createThread(@CurrentUser() user: any, @Body() dto: CreateThreadDto) {
-    return this.messagingService.createThread(user.id, dto);
+    return this.messagingService.createThread(user.userId, dto);
   }
 
   @Get('threads')
   @Roles('ADMIN', 'SUPER_ADMIN', 'STAFF', 'PARENT')
   getThreads(@CurrentUser() user: any, @Query() query: ListThreadsDto) {
-    return this.messagingService.getThreads(user.id, query);
+    return this.messagingService.getThreads(user.userId, query);
   }
 
   @Get('unread-count')
   @Roles('ADMIN', 'SUPER_ADMIN', 'STAFF', 'PARENT')
   getUnreadCount(@CurrentUser() user: any) {
-    return this.messagingService.getUnreadCount(user.id);
+    return this.messagingService.getUnreadCount(user.userId);
   }
 
   @Get('threads/:id')
   @Roles('ADMIN', 'SUPER_ADMIN', 'STAFF', 'PARENT')
   getThread(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.messagingService.getThread(id, user.id);
+    return this.messagingService.getThread(id, user.userId);
   }
 
   @Post('threads/:id/messages')
@@ -44,18 +44,18 @@ export class MessagingController {
     @CurrentUser() user: any,
     @Body() dto: SendMessageDto,
   ) {
-    return this.messagingService.sendMessage(id, user.id, dto);
+    return this.messagingService.sendMessage(id, user.userId, dto);
   }
 
   @Patch('threads/:id/read')
   @Roles('ADMIN', 'SUPER_ADMIN', 'STAFF', 'PARENT')
   markAsRead(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.messagingService.markAsRead(id, user.id);
+    return this.messagingService.markAsRead(id, user.userId);
   }
 
   @Post('broadcast')
   @Roles('ADMIN', 'SUPER_ADMIN', 'STAFF')
   broadcast(@CurrentUser() user: any, @Body() dto: BroadcastDto) {
-    return this.messagingService.createBroadcast(user.id, dto);
+    return this.messagingService.createBroadcast(user.userId, dto);
   }
 }

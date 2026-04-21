@@ -16,24 +16,24 @@ export class NotificationsController {
   @Get()
   @Roles('ADMIN', 'SUPER_ADMIN', 'STAFF', 'PARENT')
   findAll(@CurrentUser() user: any, @Query() query: ListNotificationsDto) {
-    return this.notificationsService.findAll(user.id, query);
+    return this.notificationsService.findAll(user.userId, query);
   }
 
   @Get('unread-count')
   @Roles('ADMIN', 'SUPER_ADMIN', 'STAFF', 'PARENT')
   getUnreadCount(@CurrentUser() user: any) {
-    return this.notificationsService.getUnreadCount(user.id);
+    return this.notificationsService.getUnreadCount(user.userId);
   }
 
   @Patch('read-all')
   @Roles('ADMIN', 'SUPER_ADMIN', 'STAFF', 'PARENT')
   markAllAsRead(@CurrentUser() user: any) {
-    return this.notificationsService.markAllAsRead(user.id);
+    return this.notificationsService.markAllAsRead(user.userId);
   }
 
   @Patch(':id/read')
   @Roles('ADMIN', 'SUPER_ADMIN', 'STAFF', 'PARENT')
   markAsRead(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.notificationsService.markAsRead(id, user.id);
+    return this.notificationsService.markAsRead(id, user.userId);
   }
 }

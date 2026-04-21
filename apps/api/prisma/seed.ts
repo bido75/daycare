@@ -111,6 +111,29 @@ async function main() {
     console.log('Created ClickSend SMS provider (inactive placeholder)');
   }
 
+  // Seed Email providers
+  const resendApiKey = process.env.RESEND_API_KEY ?? 're_xxx';
+  const resendIsActive = resendApiKey !== 're_xxx' && resendApiKey.length > 8;
+
+  const existingResend = await prisma.emailProvider.findUnique({ where: { name: 'resend' } });
+  if (!existingResend) {
+    await prisma.emailProvider.create({
+      data: {
+        name: 'resend',
+        displayName: 'Resend',
+        isActive: resendIsActive,
+        isDefault: resendIsActive,
+        config: {
+          apiKey: resendApiKey,
+          fromEmail: process.env.EMAIL_FROM ?? 'noreply@creativekidsacademy.com',
+          fromName: 'Creative Kids Academy',
+        },
+        contexts: ['auth', 'notifications', 'billing'],
+      },
+    });
+    console.log(`Created Resend email provider (active: ${resendIsActive})`);
+  }
+
   console.log('Seeding complete.');
 }
 

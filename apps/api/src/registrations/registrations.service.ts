@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRegistrationDto, UpdateRegistrationStatusDto, ListRegistrationsDto } from './registration.dto';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class RegistrationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+  ) {}
 
   async create(userId: string, dto: CreateRegistrationDto) {
     // Get parent profile
@@ -79,6 +83,19 @@ export class RegistrationsService {
 
       return registration;
     });
+
+    // Send confirmation email to parent (fire-and-forget)
+    const parentUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (parentUser) {
+      this.emailService
+        .sendTemplatedEmail(
+          parentUser.email,
+          'registrationSubmitted',
+          { childName: `${dto.firstName} ${dto.lastName}`, parentName: parentProfile.firstName },
+          'notifications',
+        )
+        .catch(() => {});
+    }
 
     return result;
   }
@@ -206,6 +223,34 @@ export class RegistrationsService {
 
       return updatedReg;
     });
+
+    // Send status email to parent (fire-and-forget)
+    const primaryParent = registration.student.studentParents?.[0]?.parent;
+    if (primaryParent?.user?.email) {
+      const childName = `${registration.student.firstName} ${registration.student.lastName}`;
+      const parentName = primaryParent.firstName ?? '';
+      const statusUpper = dto.status.toUpperCase();
+
+      if (statusUpper === 'APPROVED') {
+        this.emailService
+          .sendTemplatedEmail(
+            primaryParent.user.email,
+            'registrationApproval',
+            { childName, parentName },
+            'notifications',
+          )
+          .catch(() => {});
+      } else if (statusUpper === 'REJECTED') {
+        this.emailService
+          .sendTemplatedEmail(
+            primaryParent.user.email,
+            'registrationRejection',
+            { childName, parentName, reason: dto.adminNotes },
+            'notifications',
+          )
+          .catch(() => {});
+      }
+    }
 
     return updated;
   }

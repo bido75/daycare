@@ -13,6 +13,7 @@ import { AuditModule } from './audit/audit.module';
 import { BillingModule } from './billing/billing.module';
 import { ClassroomsModule } from './classrooms/classrooms.module';
 import { DocumentsModule } from './documents/documents.module';
+import { EmailModule } from './email/email.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ParentsModule } from './parents/parents.module';
@@ -34,6 +35,7 @@ import { StudentsModule } from './students/students.module';
     BillingModule,
     ClassroomsModule,
     DocumentsModule,
+    EmailModule,
     MessagingModule,
     NotificationsModule,
     ParentsModule,
